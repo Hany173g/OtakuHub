@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Socket.IO Test</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Socket.IO Test</h1>
+  <button id="connectBtn">Connect</button>
+  <button id="sendBtn">Send Test Message</button>
+
+  <script>
+    let socket;
+
+    document.getElementById('connectBtn').addEventListener('click', () => {
+      // اتصال بالسيرفر على localhost:3000 (غير البورت حسب سيرفرك)
+      socket = io('http://localhost:5000');
+
+      socket.on('connect', () => {
+        console.log('Connected to server with ID:', socket.id);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+      });
+
+      // استقبال أي رسالة من السيرفر
+      socket.on('test-message', (msg) => {
+        console.log('Received from server:', msg);
+      });
+    });
+
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      if (socket && socket.connected) {
+        socket.emit('test-message', 'Hello server!');
+        console.log('Sent message to server');
+      } else {
+        console.log('Not connected yet');
+      }
+    });
+  </script>
+</body>
+</html>
