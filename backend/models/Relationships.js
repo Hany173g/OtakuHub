@@ -14,11 +14,12 @@ const {Profile} = require('./profileModel')
 const {friends} = require('./friendModel')
 const{privateMessage} = require('./privateMessageModel')
 
-
+const {Groups} = require('./Groups')
+const {GroupMember} = require('./groupMember');
 
 const sequelize = require('../config/database');
 
-
+const {pendingRequestsGroup} = require('./pendingRequestsGroupModel')
 
 
 
@@ -111,6 +112,22 @@ const {requestFriend} = require('./requestFriendModel')
         User.hasMany(privateMessage,{foreignKey:'receiveId',as:"receivedMessage",onDelete:'CASCADE'})
         privateMessage.belongsTo(User,{foreignKey:'receiveId'})
 
+
+
+        // relationship User && Groups Many To Many
+        User.belongsToMany(Groups, { through: 'GroupMember', foreignKey: 'userId', otherKey: 'groupId', onDelete: 'CASCADE' });
+        Groups.belongsToMany(User, { through: 'GroupMember', foreignKey: 'groupId', otherKey: 'userId', onDelete: 'CASCADE' });
+
+
+        
+        User.belongsToMany(Groups,{through:"pendingRequestsGroup", as: "PendingGroups",foreignKey:'userId',otherKey:'groupId',onDelete:'CASCADE'});
+        Groups.belongsToMany(User, { through: 'pendingRequestsGroup', foreignKey: 'groupId' , as: "PendingUsers",   otherKey: 'userId', onDelete: 'CASCADE' });
+
+        //relation groups to blogs
+        
+        Groups.hasMany(Blogs,{foreignKey:'groupId',onDelete:'CASCADE'});
+
+        Blogs.belongsTo(Groups,{foreignKey:'groupId'});
 //Blogs ReelationShips
 
 
@@ -172,4 +189,4 @@ const {requestFriend} = require('./requestFriendModel')
         // nestedComments.belongsTo(nestedComments,{ as: 'Parent',foreignKey:'commentId'})
 
 
-module.exports = {User,Blogs,dislikesBlogs,friends,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+module.exports = {User,Blogs,dislikesBlogs,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

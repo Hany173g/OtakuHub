@@ -377,10 +377,10 @@ export default function Profile() {
 
   return (
     <>
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2 } }}>
       {/* Profile Header */}
-      <Paper sx={{ p: 4, mb: 3, borderRadius: 2 }}>
-        <Stack direction="row" spacing={4} alignItems="flex-start">
+      <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, mb: 3, borderRadius: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems={{ xs: 'center', md: 'flex-start' }}>
           {/* Avatar */}
           <Avatar
             src={profile.userData?.photo ? `http://localhost:5000/${profile.userData.photo}` : undefined}

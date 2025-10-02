@@ -19,11 +19,12 @@ module.exports = (io,socket) => {
             let user = await isUser(data);
             let friend = await message.sendMessage(friendUsername,content,user)
             
-            // Send to friend
+            // Send to friend with notification data
             io.to(friend.id).emit('messageSend', {
                 content: content,
                 fromUsername: user.username,
                 fromUserId: user.id,
+                photo: user.photo,
                 timestamp: new Date().toISOString()
             })
             
@@ -31,8 +32,21 @@ module.exports = (io,socket) => {
             socket.emit('messageConfirmed', {
                 content: content,
                 toUsername: friendUsername,
-                timestamp: new Date().toISOString()
+                fromUsername: user.username,
+                fromPhoto: user.photo,
+                timestamp: new Date().toISOString(),
+                photo: friend.photo
             })
+        })
+        socket.on('deleteMessage' , async(token,messageId) => {
+             try{
+                 let data =  verifyToken(token)
+                 let result = await message.deleteMessage(data,messageId)
+                 socket.emit("messageDelete", result)
+             }catch(err)
+             {
+                 socket.emit('error', { message: err.message });
+             }
         })
     }catch(err)
     {

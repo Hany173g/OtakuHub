@@ -51,11 +51,36 @@ exports.getChat = async(req,res) => {
             ...received.map(msg => ({...msg.toJSON(),isOwner:false}))
         ]
 
-       let allChat = _.sortBy(messages, "createdAt");
+        
+        let allChat = _.sortBy(messages, "createdAt");
         res.status(200).json({allChat})
     }catch(err)
     {
         res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+exports.deleteMessage = async(data,messageId) => {
+    try{
+        let user = await isUser(data);
+        let message = await privateMessage.findOne({where:{id:messageId}});
+        if (!message)
+        {
+            throw new Error("هذا الرساله غير موجوده")
+        }
+        if (message.senderId != user.id)
+        {
+            throw new Error("لأ يمكن حذف رساله ليست لك")
+        }
+        await message.update({content:"هذا الرساله تم حذفها",})
+    
+    }catch(err)
+    {
+        throw new Error(err.message)
     }
 }
 

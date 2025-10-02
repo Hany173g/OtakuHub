@@ -25,7 +25,7 @@ import { useChat } from '../contexts/ChatContext'
 export default function Navbar() {
   const navigate = useNavigate()
   const isAuthed = !!storage.token
-  const { notifications, isConnected, socket } = useSocket()
+  const { notifications, isConnected, socket, clearMessageNotifications } = useSocket()
   const { openChat } = useChat()
   
   // Notification states
@@ -69,6 +69,8 @@ export default function Navbar() {
 
   const handleNotificationClose = () => {
     setNotificationAnchor(null)
+    // Clear message notifications when closing the menu
+    clearMessageNotifications()
   }
 
   const handleAcceptFriendRequest = async (username) => {
@@ -134,76 +136,219 @@ export default function Navbar() {
     navigate('/login')
   }
   return (
-    <AppBar position="sticky" color="default" elevation={1}>
-      <Toolbar sx={{ display: 'flex', gap: 2, justifyContent: 'space-between', px: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-            OtakuHub
+    <AppBar 
+      position="sticky" 
+      sx={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.2)',
+        borderBottom: 'none'
+      }}
+    >
+      <Toolbar sx={{ 
+        display: 'flex', 
+        gap: { xs: 1, sm: 2 }, 
+        justifyContent: 'space-between', 
+        px: { xs: 1, sm: 2, md: 3 }, 
+        py: 1,
+        minHeight: { xs: '56px !important', sm: '64px !important', md: '70px !important' },
+        flexWrap: 'nowrap'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
+          <Typography 
+            variant={{ xs: 'h6', sm: 'h5' }} 
+            sx={{ 
+              fontWeight: 800, 
+              color: 'white',
+              fontFamily: '"Poppins", "Cairo", sans-serif',
+              letterSpacing: '0.5px',
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              fontSize: { xs: '1rem', sm: '1.3rem', md: '1.5rem' }
+            }}
+          >
+            🌟 OtakuHub
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button component={Link} to="/" color="primary" variant="text">
-            الرئيسية
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1, md: 2 } }}>
+          <Button 
+            component={Link} 
+            to="/" 
+            sx={{
+              color: 'white',
+              fontWeight: 600,
+              px: { xs: 1, sm: 2, md: 3 },
+              py: { xs: 0.5, sm: 1 },
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              borderRadius: '25px',
+              display: { xs: 'none', sm: 'flex' },
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)'
+              }
+            }}
+          >
+            🏠 الرئيسية
+          </Button>
+          <Button 
+            component={Link} 
+            to="/groups" 
+            sx={{
+              color: 'white',
+              fontWeight: 600,
+              px: { xs: 1, sm: 2, md: 3 },
+              py: { xs: 0.5, sm: 1 },
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              borderRadius: '25px',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)'
+              }
+            }}
+          >
+            👥 المجموعات
           </Button>
           {!isAuthed ? (
             <>
-              <Button component={Link} to="/login" color="primary" variant="outlined" sx={{ borderRadius: 0 }}>
-                تسجيل الدخول
+              <Button 
+                component={Link} 
+                to="/login" 
+                variant="outlined" 
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  borderRadius: '25px',
+                  px: { xs: 1.5, sm: 2, md: 3 },
+                  py: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+                  fontWeight: 600,
+                  '&:hover': {
+                    borderColor: 'white',
+                    bgcolor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }}
+              >
+                دخول
               </Button>
-              <Button component={Link} to="/register" color="primary" variant="contained" sx={{ borderRadius: 0 }}>
-                إنشاء حساب
+              <Button 
+                component={Link} 
+                to="/register" 
+                variant="contained" 
+                sx={{ 
+                  bgcolor: 'white',
+                  color: '#667eea',
+                  borderRadius: '25px',
+                  px: { xs: 1.5, sm: 2, md: 3 },
+                  py: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+                  fontWeight: 700,
+                  boxShadow: '0 4px 15px rgba(255, 255, 255, 0.3)',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 20px rgba(255, 255, 255, 0.4)'
+                  }
+                }}
+              >
+                تسجيل
               </Button>
             </>
           ) : (
             <>
-              <Button component={Link} to={`/profile/${storage.user?.username || 'user'}`} color="primary" variant="text">
-                الملف الشخصي
+              <Button 
+                component={Link} 
+                to={`/profile/${storage.user?.username || 'user'}`} 
+                sx={{
+                  color: 'white',
+                  fontWeight: 600,
+                  px: { xs: 1, sm: 2, md: 3 },
+                  py: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+                  borderRadius: '25px',
+                  display: { xs: 'none', sm: 'flex' },
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)'
+                  }
+                }}
+              >
+                👤 الملف
               </Button>
               
               {/* Friends Icon */}
               <IconButton 
-                color="inherit" 
-                onClick={handleFriendsClick}
+                onClick={handleFriendsClick} 
                 sx={{
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '15px',
+                  p: { xs: 0.8, sm: 1.2, md: 1.5 },
                   '&:hover': {
-                    bgcolor: 'rgba(25, 118, 210, 0.04)'
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    transform: 'scale(1.05)'
                   }
                 }}
               >
-                <PeopleIcon />
+                <Badge 
+                  badgeContent={friends.filter(f => f.isOnline).length} 
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      bgcolor: '#4CAF50',
+                      color: 'white',
+                      fontWeight: 600
+                    }
+                  }}
+                >
+                  <PeopleIcon sx={{ fontSize: 24 }} />
+                </Badge>
               </IconButton>
-
+              
               {/* Notification Icon */}
               <IconButton 
-                color="inherit" 
-                onClick={handleNotificationClick}
+                onClick={handleNotificationClick} 
                 sx={{
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '15px',
+                  p: 1.5,
                   '&:hover': {
-                    bgcolor: 'rgba(25, 118, 210, 0.04)'
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    transform: 'scale(1.05)'
                   }
                 }}
               >
-                <Badge badgeContent={totalNotifications} color="error">
-                  <NotificationsIcon />
+                <Badge 
+                  badgeContent={totalNotifications} 
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      bgcolor: '#FF5722',
+                      color: 'white',
+                      fontWeight: 600,
+                      animation: totalNotifications > 0 ? 'pulse 2s infinite' : 'none'
+                    }
+                  }}
+                >
+                  <NotificationsIcon sx={{ fontSize: 24 }} />
                 </Badge>
               </IconButton>
 
-              <IconButton 
-                color="inherit" 
-                onClick={() => navigate(`/profile/${storage.user?.username || 'user'}`)} 
-                sx={{
+              <Button 
+                onClick={handleLogout} 
+                variant="outlined" 
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  borderRadius: '25px',
+                  px: 3,
+                  fontWeight: 600,
                   '&:hover': {
-                    bgcolor: 'rgba(25, 118, 210, 0.04)'
+                    borderColor: '#FF5722',
+                    bgcolor: 'rgba(255, 87, 34, 0.1)',
+                    color: '#FF5722'
                   }
                 }}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                  {storage.user?.username?.[0]?.toUpperCase() || 'U'}
-                </Avatar>
-              </IconButton>
-              <Button onClick={handleLogout} color="primary" variant="outlined" sx={{ borderRadius: 0 }}>
-                تسجيل الخروج
+                🚪 خروج
               </Button>
             </>
           )}
@@ -427,9 +572,8 @@ export default function Navbar() {
                     py: 0.5,
                     fontSize: '0.75rem',
                     '&:hover': {
-                      bgcolor: '#1877f2',
-                      color: 'white',
-                      borderColor: '#1877f2'
+                      bgcolor: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)'
                     }
                   }}
                 >

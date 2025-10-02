@@ -31,27 +31,25 @@ require('./sockets/notificationSystem')(io)
 io.on('connection', socket => {
   require('./sockets/requestFriend')(io,socket)
   require('./sockets/chat')(io,socket)
-  require('./sockets/onlineFriends')(io,socket)
+  require('./sockets/Friends')(io,socket)
 })
 
 
 
 
 //Server Settings
+// CORS must be first to handle preflight requests
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 app.use(rateLimiting) 
 
 app.use(express.json()); // can sent json data
 app.use(express.urlencoded({extended:true})) // read requests
-
-
-
-// app.use(rateLimiting)
-
-
-app.use(cors({
-  origin: 'http://localhost:3000', 
-  methods: ['GET','POST','PUT','DELETE']
-}));
  // statics Folders
 app.use(express.static(path.join(__dirname,'uploads'))) 
  
@@ -84,7 +82,7 @@ let isAuth = require('./routes/checkAuth')
 let profileRoute = require('./routes/profileRoute');
 let NotificationsRoute = require('./routes/NotificationRoute')
 let messageRoute = require('./routes/messageRoute')
-
+let groupRoute = require('./routes/groupRoute')
 
 
 app.use('/api/auth',registerRoute)
@@ -95,7 +93,7 @@ app.use('/api/',isAuth)
 app.use('/api',profileRoute)
 app.use('/api',NotificationsRoute)
 app.use('/api',messageRoute)
-
+app.use('/api',groupRoute)
 
 
 

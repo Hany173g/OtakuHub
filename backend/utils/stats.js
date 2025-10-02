@@ -1,64 +1,39 @@
-const { likesBlogs ,likesComments, dislikesBlogs,dislikeComments,commentStats} = require("../models/Relationships");
+const { where } = require("sequelize");
+const { likesBlogs ,Groups,likesComments,User,GroupMember, dislikesBlogs,dislikeComments,commentStats, Blogs} = require("../models/Relationships");
 
 
 
-// const addLike = async(user,id,service,item) => {
-//     let like = service === 'blogs' ? likesBlogs : likesComments;
-//     let dislike = service === 'blogs' ? dislikesBlogs : dislikeComments
-//     let idColumn = service === 'blogs' ? 'blogId' : 'commentId';
-    
-//     const isLike = await like.findOne({where:{userId:user.id,[idColumn]:id}})
-//     const isDislike = await dislike.findOne({where:{userId:user.id,[idColumn]:id}})
-//         if (isLike)
-//         {
-//             throw new Error("لقد قمت بلفعل بوضع اعجاب")
-//         }
-     
-        
-//         let likes;
-//         if (service === 'blogs') {
-//             await user.createLikesBlog({ [idColumn]: id });
-//             likes = await item.getBlogStat();
-//         } else {
-//             await user.createLikesComment({ [idColumn]: id });
-//             likes = await item.getCommentStat();
+const checkGroupStats = async(checkBlog,userId) => {
+    let group = await Groups.findByPk(checkBlog);
+            let checkUser = await group.getUsers({where:{id:userId}})
+        if (group.privacy === 'private' && checkUser.length < 1)
+            {
+                throw new Error("هذا الجروب خاص")
+            }
+}
 
-//         }
-//         if (likes)
-//         {
-        
-//           await likes.increment('likesNumber', { by: 1 });
-//         }
-//         else
-//         {
-//             let newStats;
-//             if (service === 'blogs')
-//             {
-//                  newStats =  await item.createBlogStat();
-//             }
-//             else
-//             {
-//                 newStats = await item.createCommentStat();
-//             }
-
-//             await newStats.increment('likesNumber', { by: 1 });
-//         }
-//         if (isDislike)
-//         {
-//             await isDislike.destroy();
-//             await likes.decrement('dislikeNumber', { by: 1 });
-
-//         }
-// }
-
-
-
-
-const Like_Dislike = async(user,id,service,item,actionUser) => {
+const Like_Dislike = async(user,id,service,item,actionUser,group) => {
     let like = service === 'blogs' ? likesBlogs : likesComments;
     let dislike = service === 'blogs' ? dislikesBlogs : dislikeComments
     let idColumn = service === 'blogs' ? 'blogId' : 'commentId';
     const action = actionUser === 'like' ? 'like' : 'dislike';
+    if (service ==='blogs')
+    {
+        let checkBlog = item.groupId;
+        if (checkBlog)
+        {
+           await checkGroupStats(checkBlog,user.id)
+        }
+    }
+    else
+    {
+        let checkComment = item.blogId;
+        let blog = await Blogs.findByPk(checkComment)
+        if (blog.groupId)
+        {
+           await  checkGroupStats(blog.groupId,user.id)
+        }
+    }
     let primaryAction;
     let secondaryAction ;
     if (action === 'like')

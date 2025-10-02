@@ -25,10 +25,10 @@ import {
   MoreVert as MoreVertIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material'
-import { reactAction, deleteComment } from '../lib/api'
+import { reactAction, deleteComment, storage } from '../lib/api'
 import { addComment } from '../lib/api'
 
-export default function CommentsDialog({ open, onClose, blog, onAddComment }) {
+export default function CommentsDialog({ open, onClose, blog, onAddComment, userRole = 'guest' }) {
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
   const [localBlog, setLocalBlog] = useState(blog)
@@ -53,6 +53,12 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment }) {
       
       // Update local blog data with new comment immediately
       if (result && result.data) {
+        let currentUser = null
+        try {
+          currentUser = storage.user ? JSON.parse(storage.user) : null
+        } catch (e) {
+          currentUser = storage.user || null
+        }
         const newComment = {
           ...result.data.newComment,
           isLike: false,
@@ -60,7 +66,8 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment }) {
           isOwnerComment: true, // أي تعليق جديد = owner دائماً
           commentStats: result.data.newComment?.commentStats ?? null,
           userData: {
-            username: result.data.username || 'مستخدم',
+            username: result.data.username || currentUser?.username || 'مستخدم',
+            photo: currentUser?.photo,
             id: result.data.newComment.userId
           }
         }
@@ -390,8 +397,8 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment }) {
                       </Box>
                     </Stack>
                     
-                    {/* 3 dots menu for comment owner */}
-                    {c.isOwnerComment && (
+                    {/* 3 dots menu for comment owner or moderators */}
+                    {(c.isOwnerComment || ['owner', 'admin', 'moderator'].includes(userRole?.toLowerCase())) && (
                       <IconButton 
                         size="small" 
                         onClick={(e) => {

@@ -33,7 +33,7 @@ module.exports = (io,socket) => {
     
     socket.on('disconnect',() => {
         delete io.OnlineUsers[socket.userId];
-        console.log(io.OnlineUsers)
+ 
     })
 
     socket.on('getFriends',async(token) => {
@@ -53,3 +53,4 @@ module.exports = (io,socket) => {
         
     })
 }
+

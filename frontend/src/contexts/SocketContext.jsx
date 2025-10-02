@@ -73,6 +73,26 @@ export const SocketProvider = ({ children }) => {
           console.log('❌ Invalid notification data:', data)
         }
       })
+      
+      // Listen for new message notifications
+      newSocket.on('messageSend', (data) => {
+        console.log('💬 New message notification:', data)
+        
+        if (data && data.fromUsername) {
+          setNotifications(prev => [...prev, {
+            id: Date.now(),
+            type: 'message',
+            from: {
+              username: data.fromUsername,
+              id: data.fromUserId,
+              photo: data.photo
+            },
+            message: `${data.fromUsername}: ${data.content}`,
+            content: data.content,
+            timestamp: new Date(data.timestamp)
+          }])
+        }
+      })
 
       // Listen for friend request sent confirmation
       newSocket.on('requestSent', (data) => {
@@ -125,6 +145,10 @@ export const SocketProvider = ({ children }) => {
   const clearNotifications = () => {
     setNotifications([])
   }
+  
+  const clearMessageNotifications = () => {
+    setNotifications(prev => prev.filter(n => n.type !== 'message'))
+  }
 
   // Chat functions
   const joinChat = () => {
@@ -153,6 +177,7 @@ export const SocketProvider = ({ children }) => {
     isRequestPending,
     sendFriendRequest,
     clearNotifications,
+    clearMessageNotifications,
     removeNotification,
     setFriendRequestStatus,
     joinChat,

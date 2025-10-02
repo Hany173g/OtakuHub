@@ -32,6 +32,9 @@ const Blogs = sequelize.define("Blog",{
     title:{
         type:DataTypes.STRING,
         allowNull:false,
+    },
+    groupId:{
+        type:DataTypes.INTEGER,
     }
 },
 {

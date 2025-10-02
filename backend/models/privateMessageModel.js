@@ -31,10 +31,6 @@ const privateMessage = sequelize.define('privateMessages',{
         type:DataTypes.TEXT,
         allowNull:false
     },
-    status: {
-     type: DataTypes.ENUM("sent", "delivered", "read"),
-     defaultValue: "sent"
-    },
     isDelete:{
         type:DataTypes.BOOLEAN,
         defaultValue:false

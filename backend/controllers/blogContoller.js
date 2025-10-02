@@ -1,13 +1,16 @@
-const{User,Blogs,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,GroupMember,Groups,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
 
 
 
 const {isUser} =require('../utils/isUser')
-const {checkDataBlog,checkPhoto,checkBlog,checkComment,checkAction} =require('../utils/checkData')
+const {checkData,checkPhoto,checkBlog,checkComment,checkGroupRole,checkAction} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
+
+const {createBlog} = require('../service/blogService')
 
 
 const {getBlogs} = require('../service/getBlogs')
+const { where } = require('sequelize')
 
 
 
@@ -18,31 +21,7 @@ exports.createBlog = async(req,res) => {
         // isUser check if user auth or not
        
     let user =   await  isUser(req.user)
-    
-    checkDataBlog(req.body); 
-    const{content,title} = req.body;
-    
-     let newBlog ;
-
-    if (req.file)
-    {  
-     
-        checkPhoto(req.file)
-        newBlog = await user.createBlog({
-            content
-            ,title
-            ,photo:req.file.filename
-        })
-       
-    }
-    else 
-    {
-         newBlog = await user.createBlog(
-            {
-                content
-                ,title
-            })
-    }
+   let newBlog =  await createBlog(req.body,req.file,user)
     res.status(200).json({blogData:newBlog})
     }catch(err)
     {
@@ -202,17 +181,35 @@ exports.deleteBlog = async(req,res) => {
            let user =   await  isUser(req.user)
            const{blogId} = req.body;          
            let blog = await checkBlog(blogId);
-           if (blog.userId != req.user.id)
+           if (!blog)
+           {
+            throw new Error("هذا المقاله غير موجده")
+           }
+           console.log(blog.groupId)
+           let checkRole = await checkGroupRole(blog.groupId,user)
+           if (checkRole)
+           {
+            
+           }
+           else if (blog.userId != user.id)
            {
              throw new Error("يجب ان تكون انت صاحب المقال لتسطيع حذفه")
            }
+
            await blog.destroy();
           res.status(200).json({message:"تم حذف المقاله"}) 
     }catch(err)
     {
+        console.log(err.message)
         res.status(400).json({message:err.message})
     }
 }
+
+
+
+
+
+
 
 
 exports.deleteComment = async(req,res) => {
@@ -220,15 +217,23 @@ exports.deleteComment = async(req,res) => {
          let user =   await  isUser(req.user)
          const {commentId} = req.body;
          let comment = await commentsBlogs.findByPk(commentId);
+           
          if (!comment)
             {
                 throw new Error("هذا التعليق غير موجود")    
             } 
-           if (comment.userId !== user.id) {
-            throw new Error("ليس لديك صلاحية لحذف هذا التعليق");
-        }       
         let blog = await Blogs.findOne({ where: { id: comment.blogId } });
+            let checkRole = await checkGroupRole(blog.groupId,user)
+           if (checkRole)
+           {
+            
+           }
+            else if (comment.userId !== user.id) {
+                throw new Error("ليس لديك صلاحية لحذف هذا التعليق");
+            }       
+      
         let blogStat = await blog.getBlogStat();
+
         await blogStat.decrement('commentsNumber',{by:1})
         await comment.destroy();
         res.status(200).json({message:"تم حذف التعليق"})

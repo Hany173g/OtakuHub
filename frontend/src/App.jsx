@@ -5,6 +5,10 @@ import Navbar from './components/Navbar'
 import FeedNew from './pages/FeedNew'
 import Profile from './pages/Profile'
 import Chat from './pages/Chat'
+import Groups from './pages/Groups'
+import GroupDetails from './pages/GroupDetails'
+import GroupDashboard from './pages/GroupDashboard'
+import GroupRules from './pages/GroupRules'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -49,20 +53,34 @@ const getTheme = () => createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          border: '1px solid #e0e0e0',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           borderRadius: 0,
         },
       },
     },
-    MuiButton: {
+    MuiCssBaseline: {
       styleOverrides: {
-        root: {
-          borderRadius: 0,
-          fontWeight: 500,
-          textTransform: 'none',
+        '*': {
+          boxSizing: 'border-box',
         },
-      },
+        html: {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        },
+        body: {
+          margin: 0,
+          padding: 0,
+          overflowX: 'hidden',
+        },
+        img: {
+          maxWidth: '100%',
+          height: 'auto',
+          imageRendering: '-webkit-optimize-contrast',
+          WebkitFontSmoothing: 'antialiased',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }
+      }
     },
     MuiContainer: { styleOverrides: { root: { paddingTop: 16, paddingBottom: 16 } } },
   },
@@ -99,9 +117,13 @@ export default function App() {
           <SnackbarProvider>
             <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
               <Navbar />
-              <Container maxWidth="lg" sx={{ py: 2, px: 3 }}>
+              <Container maxWidth="lg" sx={{ py: { xs: 1, md: 2 }, px: { xs: 1, sm: 2, md: 3 } }}>
                 <Routes>
                   <Route path="/" element={<FeedNew />} />
+                  <Route path="/groups" element={<Groups />} />
+                  <Route path="/groups/:groupName" element={<GroupDetails />} />
+                  <Route path="/groups/:groupName/dashboard" element={<GroupDashboard />} />
+                  <Route path="/groups/:groupName/rules" element={<GroupRules />} />
                   <Route path="/profile/:username" element={<Profile />} />
                   <Route path="/chat/:username" element={<Chat />} />
                   <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />

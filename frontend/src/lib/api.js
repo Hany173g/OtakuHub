@@ -87,3 +87,26 @@ export const cancelFriend = (username) => api.post('/api/cancelFriend', { userna
 
 // Chat functions
 export const getChat = (username) => api.post('/api/getChat', { username })
+
+// Groups functions
+export const createGroup = (formData) => api.post('/api/groups/create', formData, { 
+  headers: { 'Content-Type': 'multipart/form-data' }
+})
+export const getAllGroups = () => api.get('/api/groups')
+export const getGroup = (groupName) => api.post('/api/getGroup', { groupName })
+export const joinGroup = (groupName) => api.post('/api/joinGroup', { groupName })
+export const leaveGroup = (groupName) => api.post('/api/leaveGroup', { groupName })
+export const cancelJoinGroup = (groupName) => api.post('/api/cancelJoinGroup', { groupName })
+export const getPendingUsers = (groupName) => api.get('/api/getPendingUsers', { params: { groupName } })
+export const acceptUser = (groupName, id) => api.post('/api/group/acceptUser', { groupName, id })
+export const cancelUser = (groupName, id) => api.post('/api/group/cancelUser', { groupName, id })
+export const checkGroupAccess = (groupName) => api.get('/api/group/isAcess', { params: { groupName } })
+export const addGroupPost = (formData) => api.post('/api/addPost', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+})
+export const searchMembers = (groupName, username) => api.post('/api/group/searchMembers', { groupName, username })
+export const changeRole = (groupName, username, newRole) => api.post('/api/group/changeRole', { groupName, username, newRole })
+export const kickUser = (groupName, username) => api.post('/api/group/kickUser', { groupName, username })
+export const updateGroupData = (formData) => api.post('/api/groups/updateGroupData', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+})

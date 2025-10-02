@@ -1,29 +1,36 @@
 
-const{User,Blogs,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,nestedComments,Groups,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+
+const {Op, where} = require('sequelize')
 
 
-
- const getBlogs = async(req,res,service,user) =>
+ const getBlogs = async(req,res,service,user,group) =>
 {
     let blogs;
    if (service === 'home')
     {
-           blogs = await Blogs.findAll({
+           blogs = await Blogs.findAll({where:{ groupId: { [Op.is]: null }   },
             include: [
                 commentsBlogs,
             ],
             limit: 20
         });
     } 
+    else if (service === 'group')
+    {
+        blogs = await group.getBlogs({limit:20,include:[commentsBlogs]});
+    
+    }
     else
     {
        blogs = await Blogs.findAll({
-            where: { userId: user.id },
+            where: { userId: user.id,groupId: { [Op.is]: null } },
             include: [
                 commentsBlogs
             ],
             limit: 20
         });
+     
     }
 
     let allBlogs = [];

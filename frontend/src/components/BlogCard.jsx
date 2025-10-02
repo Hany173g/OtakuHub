@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Card from '@mui/material/Card'
 import CardHeader from '@mui/material/CardHeader'
@@ -29,26 +29,36 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
-import { reactAction, removeLike, removeDislike, addComment, deleteBlog, API_BASE } from '../lib/api'
+import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE } from '../lib/api'
 import CommentsDialog from './CommentsDialog'
 
-export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog }) {
+export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog, userRole = 'guest' }) {
+  const [localBlog, setLocalBlog] = useState(blog)
   const [busy, setBusy] = useState(false)
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' })
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const hasPhoto = !!blog.photo
-  const likedByUser = blog.isLike
-  const dislikedByUser = blog.isDislike
-  const stats = blog.blogStats || blog.blogStat || {}
+  const hasPhoto = !!localBlog.photo
+  const likedByUser = localBlog.isLike
+  const dislikedByUser = localBlog.isDislike
+  const stats = localBlog.blogStats || localBlog.blogStat || {}
   const likeCount = Math.max(0, stats.likesNumber ?? 0)
   const dislikeCount = Math.max(0, stats.dislikeNumber ?? 0)
   const commentCount = Math.max(0, stats.commentsNumber ?? 0)
-  const isOwner = blog.isOwner
+  const isOwner = localBlog.isOwner
+  const canDelete = isOwner || ['owner', 'admin', 'moderator'].includes(userRole?.toLowerCase())
+  
+  // Debug log
+  console.log('BlogCard - userRole:', userRole, 'canDelete:', canDelete, 'isOwner:', isOwner)
 
   const ownerName = blog.userData?.username || 'مستخدم'
   const ownerInitials = (blog.userData?.username || 'U').slice(0, 2).toUpperCase()
+
+  // Update localBlog when blog prop changes
+  useEffect(() => {
+    setLocalBlog(blog)
+  }, [blog])
 
   const showError = (err, fallback = 'تعذّر تنفيذ العملية') => {
     const status = err?.response?.status
@@ -74,9 +84,10 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
 
   const handleReact = async (type) => {
     if (busy) return
+    setBusy(true)
     
     // Update UI immediately (Optimistic Update)
-    const updatedBlog = { ...blog }
+    const updatedBlog = { ...localBlog }
     if (type === 'like') {
       if (likedByUser) {
         // Remove like
@@ -122,7 +133,8 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
     }
     
     // Update UI immediately
-    onUpdateBlog(updatedBlog)
+    setLocalBlog(updatedBlog)
+    onUpdateBlog?.(updatedBlog)
     
     // Send to backend in background
     try {
@@ -135,8 +147,11 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
       }
     } catch (err) {
       // If backend fails, revert the UI change
-      onUpdateBlog(blog)
+      setLocalBlog(blog)
+      onUpdateBlog?.(blog)
       showError(err)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -146,7 +161,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
       setBusy(true)
       const action = type === 'like' ? removeLike : removeDislike
       const { data } = await action(blog.id)
-      onUpdateBlog(data.updatedBlog)
+      onUpdateBlog?.(data.updatedBlog)
     } catch (err) {
       showError(err)
     } finally {
@@ -248,24 +263,37 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
 
   const handleAddComment = async (blogId, content) => {
     try {
-      const { data } = await addComment(blogId, content)
+      const result = await addComment(blogId, content)
+      const { data } = result
+      let currentUser = null
+      try {
+        currentUser = storage.user ? JSON.parse(storage.user) : null
+      } catch (e) {
+        currentUser = storage.user || null
+      }
       const newComment = {
         ...data.newComment,
         isLike: false,
         isDislike: false,
         commentStats: data.newComment?.commentStats ?? null,
         userData: {
-          username: data.username || 'مستخدم',
+          username: data.username || currentUser?.username || 'مستخدم',
+          photo: currentUser?.photo,
           id: data.newComment.userId
         }
       }
-      onUpdateBlog({
-        ...blog,
-        commentsBlogs: [newComment, ...(blog.commentsBlogs || [])],
-        blogStats: { ...blog.blogStats, commentsNumber: (blog.blogStats?.commentsNumber ?? 0) + 1 }
-      })
+      // Update local state immediately
+      const updatedBlog = {
+        ...localBlog,
+        commentsBlogs: [newComment, ...(localBlog.commentsBlogs || [])],
+        blogStats: { ...localBlog.blogStats, commentsNumber: (localBlog.blogStats?.commentsNumber ?? 0) + 1 }
+      }
+      setLocalBlog(updatedBlog)
+      onUpdateBlog?.(updatedBlog)
+      return result // Return result for CommentsDialog
     } catch (err) {
       showError(err)
+      throw err
     }
   }
 
@@ -275,13 +303,38 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
 
   return (
     <>
-      <Card sx={{ overflow: 'hidden', borderRadius: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.1)', maxWidth: '100%', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
+      <Card sx={{ 
+        overflow: 'hidden', 
+        borderRadius: '20px', 
+        boxShadow: '0 8px 32px rgba(0,0,0,0.08)', 
+        maxWidth: '100%', 
+        bgcolor: 'background.paper', 
+        border: '1px solid rgba(0,0,0,0.05)',
+        mb: 3,
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.12)'
+        }
+      }}>
         <CardHeader
           avatar={
             <Link to={`/profile/${ownerName}`} style={{ textDecoration: 'none' }}>
               <Avatar 
                 src={blog.userData?.photo ? `http://localhost:5000/${blog.userData.photo}` : undefined}
-                sx={{ bgcolor: 'primary.main', width: 48, height: 48, fontSize: '1.1rem' }}
+                sx={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  width: 56, 
+                  height: 56, 
+                  fontSize: '1.2rem',
+                  fontWeight: 700,
+                  border: '3px solid rgba(102, 126, 234, 0.2)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                    boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
+                  }
+                }}
               >
                 {!blog.userData?.photo && ownerInitials}
               </Avatar>
@@ -289,14 +342,40 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
           }
           title={
             <Link to={`/profile/${ownerName}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 700, 
+                  fontSize: '1.2rem',
+                  fontFamily: '"Cairo", sans-serif',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  '&:hover': {
+                    transform: 'translateX(5px)'
+                  }
+                }}
+              >
                 {ownerName}
               </Typography>
             </Link>
           }
-          subheader={<Typography variant="body2" color="text.secondary">{formatRelative(blog.createdAt)}</Typography>}
+          subheader={
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: 'text.secondary',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                mt: 0.5
+              }}
+            >
+              📅 {formatRelative(blog.createdAt)}
+            </Typography>
+          }
           action={
-            isOwner && isAuthed && (
+            canDelete && isAuthed && (
               <>
                 <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
                   <MoreVertIcon />
@@ -317,63 +396,141 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
           sx={{ pb: 1 }}
         />
         {hasPhoto && (
-          <CardMedia component="img" height="400" image={`${API_BASE}/${blog.photo}`} alt={blog.title} sx={{ objectFit: 'cover' }} />
+          <CardMedia 
+            component="img" 
+            height="450" 
+            image={`${API_BASE}/${blog.photo}`} 
+            alt={blog.title} 
+            sx={{ 
+              objectFit: 'cover',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.02)'
+              }
+            }} 
+          />
         )}
-        <CardContent sx={{ pt: 2, pb: 2, px: 3 }}>
-          <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '1rem', color: 'text.primary' }}>{blog.content}</Typography>
+        <CardContent sx={{ pt: 4, pb: 2, px: 4 }}>
+          {blog.title && (
+            <Typography 
+              variant="h5"
+              sx={{ 
+                fontWeight: 700,
+                mb: 2,
+                color: 'text.primary',
+                fontFamily: '"Cairo", sans-serif',
+              }}
+            >
+              {blog.title}
+            </Typography>
+          )}
+          <Typography 
+            sx={{ 
+              whiteSpace: 'pre-wrap', 
+              lineHeight: 1.8, 
+              fontSize: '1.1rem', 
+              color: 'text.primary',
+              fontFamily: '"Cairo", sans-serif',
+              fontWeight: 500,
+              letterSpacing: '0.3px'
+            }}
+          >
+            {blog.content}
+          </Typography>
         </CardContent>
 
         {/* Reactions Bar */}
-        <Box sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Stack direction="row" spacing={0} alignItems="center" sx={{ width: '100%' }}>
+        <Box sx={{ 
+          px: 4, 
+          py: 3, 
+          borderTop: '1px solid rgba(0,0,0,0.08)',
+          background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)'
+        }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
             <Button
-              color={likedByUser ? 'primary' : 'inherit'}
               onClick={() => handleReact('like')}
               sx={{
                 flex: 1,
-                borderRadius: 0,
-                py: 1.5,
-                fontSize: '0.9rem',
-                fontWeight: likedByUser ? 600 : 500,
-                color: likedByUser ? 'primary.main' : 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.04)' }
+                borderRadius: '15px',
+                py: 2,
+                fontSize: '1rem',
+                fontWeight: 600,
+                fontFamily: '"Cairo", sans-serif',
+                color: likedByUser ? '#667eea' : 'text.secondary',
+                bgcolor: likedByUser ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
+                border: likedByUser ? '2px solid rgba(102, 126, 234, 0.3)' : '2px solid transparent',
+                transition: 'all 0.3s ease',
+                '& .MuiButton-startIcon': {
+                  marginRight: '10px'
+                },
+                '&:hover': { 
+                  bgcolor: 'rgba(102, 126, 234, 0.1)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 25px rgba(102, 126, 234, 0.2)'
+                }
               }}
-              startIcon={likedByUser ? <ThumbUpIcon /> : <ThumbUpOffAltIcon />}
+              startIcon={
+                likedByUser ? 
+                <ThumbUpIcon sx={{ color: '#667eea', fontSize: 22 }} /> : 
+                <ThumbUpOffAltIcon sx={{ fontSize: 22 }} />
+              }
             >
-              إعجاب ({likeCount})
+           إعجاب ( {likeCount} )
             </Button>
 
             <Button
-              color={dislikedByUser ? 'secondary' : 'inherit'}
               onClick={() => handleReact('dislike')}
               sx={{
                 flex: 1,
-                borderRadius: 0,
-                py: 1.5,
-                fontSize: '0.9rem',
-                fontWeight: dislikedByUser ? 600 : 500,
-                color: dislikedByUser ? 'secondary.main' : 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(220, 0, 78, 0.04)' }
+                borderRadius: '15px',
+                py: 2,
+                fontSize: '1rem',
+                fontWeight: 600,
+                fontFamily: '"Cairo", sans-serif',
+                color: dislikedByUser ? '#FF5722' : 'text.secondary',
+                bgcolor: dislikedByUser ? 'rgba(255, 87, 34, 0.1)' : 'transparent',
+                border: dislikedByUser ? '2px solid rgba(255, 87, 34, 0.3)' : '2px solid transparent',
+                transition: 'all 0.3s ease',
+                '& .MuiButton-startIcon': {
+                  marginRight: '10px'
+                },
+                '&:hover': { 
+                  bgcolor: 'rgba(255, 87, 34, 0.1)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 25px rgba(255, 87, 34, 0.2)'
+                }
               }}
-              startIcon={dislikedByUser ? <ThumbDownIcon /> : <ThumbDownOffAltIcon />}
+              startIcon={
+                dislikedByUser ? 
+                <ThumbDownIcon sx={{ color: '#FF5722', fontSize: 22 }} /> : 
+                <ThumbDownOffAltIcon sx={{ fontSize: 22 }} />
+              }
             >
-              عدم إعجاب ({dislikeCount})
+               عدم إعجاب ( {dislikeCount} )
             </Button>
 
             <Button
               onClick={() => setCommentsOpen(true)}
               sx={{
                 flex: 1,
-                borderRadius: 0,
-                py: 1.5,
-                fontSize: '0.9rem',
-                fontWeight: 500,
+                borderRadius: '15px',
+                py: 2,
+                fontSize: '1rem',
+                fontWeight: 600,
+                fontFamily: '"Cairo", sans-serif',
                 color: 'text.secondary',
-                '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
+                border: '2px solid transparent',
+                transition: 'all 0.3s ease',
+                '&:hover': { 
+                  bgcolor: 'rgba(0, 150, 136, 0.1)',
+                  color: '#009688',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 25px rgba(0, 150, 136, 0.2)'
+                }
               }}
-              startIcon={<ChatBubbleOutlineIcon />}
+              startIcon={<ChatBubbleOutlineIcon sx={{ fontSize: 22 }} />}
             >
-              تعليقات ({commentCount})
+              💬 تعليقات ( {commentCount} )
             </Button>
           </Stack>
         </Box>
@@ -422,6 +579,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
         onClose={() => setCommentsOpen(false)}
         blog={blog}
         onAddComment={handleAddComment}
+        userRole={userRole}
       />
 
       <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

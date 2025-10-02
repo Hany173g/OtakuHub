@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Stack, Snackbar, Alert as MuiAlert, Box, Typography, IconButton } from '@mui/material'
-import { createBlog, storage } from '../lib/api'
+import { createBlog, addGroupPost, storage } from '../lib/api'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CloseIcon from '@mui/icons-material/Close'
 
-export default function CreateBlogDialog({ open, onClose, onCreated }) {
+export default function CreateBlogDialog({ open, onClose, onCreated, groupName }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [file, setFile] = useState(null)
@@ -18,7 +18,18 @@ export default function CreateBlogDialog({ open, onClose, onCreated }) {
     if (!storage.token) { setSnack({ open: true, message: 'يجب تسجيل الدخول لنشر تدوينة', severity: 'error' }); return }
     setLoading(true)
     try {
-      await createBlog({ title, content, photo: file })
+      if (groupName) {
+        // Post to group
+        const formData = new FormData()
+        formData.append('groupName', groupName)
+        formData.append('title', title)
+        formData.append('content', content)
+        if (file) formData.append('photo', file)
+        await addGroupPost(formData)
+      } else {
+        // Post to home feed
+        await createBlog({ title, content, photo: file })
+      }
       onCreated?.()
       reset()
       onClose?.()

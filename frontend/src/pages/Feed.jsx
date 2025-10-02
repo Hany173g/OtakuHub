@@ -74,14 +74,44 @@ export default function Feed() {
   ]
 
   return (
-    <Box sx={{ display: 'flex', gap: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      py: 3
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 4, 
+        maxWidth: 1400, 
+        mx: 'auto',
+        px: 3
+      }}>
       {/* Sidebar */}
-      <Box sx={{ width: 200, flexShrink: 0 }}>
-        <Paper sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: 'text.primary' }}>
-            الاختصارات
+      <Box sx={{ width: 280, flexShrink: 0 }}>
+        <Paper sx={{ 
+          p: 3, 
+          borderRadius: '20px', 
+          mb: 3,
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              mb: 3, 
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: '"Cairo", sans-serif'
+            }}
+          >
+            🚀 الاختصارات
           </Typography>
-          <Stack spacing={1}>
+          <Stack spacing={2}>
             {shortcuts.map((item, idx) => (
               <Button
                 key={idx}
@@ -89,9 +119,28 @@ export default function Feed() {
                 variant={item.active ? 'contained' : 'text'}
                 sx={{
                   justifyContent: 'flex-start',
-                  borderRadius: 2,
-                  fontSize: '0.9rem',
-                  py: 1
+                  borderRadius: '15px',
+                  fontSize: '1rem',
+                  py: 1.5,
+                  px: 2,
+                  fontWeight: 600,
+                  fontFamily: '"Cairo", sans-serif',
+                  ...(item.active ? {
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)'
+                    }
+                  } : {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      bgcolor: 'rgba(102, 126, 234, 0.1)',
+                      color: '#667eea',
+                      transform: 'translateX(5px)'
+                    }
+                  }),
+                  transition: 'all 0.3s ease'
                 }}
               >
                 {item.label}
@@ -101,18 +150,66 @@ export default function Feed() {
         </Paper>
 
         {isAuthed && (
-          <Paper sx={{ p: 2, borderRadius: 2 }}>
-            <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: 'text.primary' }}>
-              الإحصائيات
+          <Paper sx={{ 
+            p: 3, 
+            borderRadius: '20px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                mb: 3, 
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontFamily: '"Cairo", sans-serif'
+              }}
+            >
+              📊 الإحصائيات
             </Typography>
-            <Stack spacing={1}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">إجمالي التدوينات:</Typography>
-                <Typography variant="body2" fontWeight={600}>{blogs.length}</Typography>
+            <Stack spacing={3}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                p: 2,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)'
+              }}>
+                <Typography variant="body1" fontWeight={600} color="text.primary">📝 إجمالي التدوينات</Typography>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 800,
+                    color: '#667eea',
+                    fontSize: '1.5rem'
+                  }}
+                >
+                  {blogs.length}
+                </Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">التفاعلات:</Typography>
-                <Typography variant="body2" fontWeight={600}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                p: 2,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(255, 87, 34, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)'
+              }}>
+                <Typography variant="body1" fontWeight={600} color="text.primary">❤️ التفاعلات</Typography>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 800,
+                    color: '#FF5722',
+                    fontSize: '1.5rem'
+                  }}
+                >
                   {blogs.reduce((sum, b) => sum + ((b.blogStats?.likesNumber ?? 0) + (b.blogStats?.dislikeNumber ?? 0)), 0)}
                 </Typography>
               </Box>
@@ -122,31 +219,80 @@ export default function Feed() {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, maxWidth: 600 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="h5" fontWeight={700} sx={{ color: 'text.primary' }}>آخر التدوينات</Typography>
+      <Box sx={{ 
+        flex: 1, 
+        maxWidth: 700,
+        mx: 2
+      }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: '"Cairo", sans-serif',
+              letterSpacing: '0.5px'
+            }}
+          >
+            🌟 آخر التدوينات
+          </Typography>
           {isAuthed && (
-            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setOpen(true)} sx={{ borderRadius: 6, px: 3, fontWeight: 600 }}>
-              تدوينة جديدة
+            <Button 
+              startIcon={<AddIcon sx={{ fontSize: 24 }} />} 
+              variant="contained" 
+              onClick={() => setOpen(true)} 
+              sx={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '25px', 
+                px: 4, 
+                py: 1.5,
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                fontFamily: '"Cairo", sans-serif',
+                boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-3px)',
+                  boxShadow: '0 12px 35px rgba(102, 126, 234, 0.4)',
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)'
+                }
+              }}
+            >
+              ✨ تدوينة جديدة
             </Button>
           )}
         </Stack>
 
         {loading ? (
-          <Stack spacing={2}>
-            {[...Array(4)].map((_, i) => (
-              <Box key={i} sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 1 }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Skeleton variant="circular" width={40} height={40} />
+          <Stack spacing={3}>
+            {[...Array(3)].map((_, i) => (
+              <Box key={i} sx={{ 
+                p: 4, 
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px', 
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}>
+                <Stack spacing={2}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Skeleton variant="circular" width={56} height={56} sx={{ bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
                     <Stack sx={{ flex: 1 }}>
-                      <Skeleton variant="text" width="60%" height={20} />
-                      <Skeleton variant="text" width="40%" height={16} />
+                      <Skeleton variant="text" width="60%" height={24} sx={{ bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
+                      <Skeleton variant="text" width="40%" height={18} sx={{ bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
                     </Stack>
                   </Stack>
-                  <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 2 }} />
-                  <Skeleton variant="text" height={20} />
-                  <Skeleton variant="text" width="80%" height={16} />
+                  <Skeleton variant="rectangular" height={300} sx={{ borderRadius: '15px', bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
+                  <Skeleton variant="text" height={24} sx={{ bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
+                  <Skeleton variant="text" width="80%" height={20} sx={{ bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
+                  <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                    <Skeleton variant="rounded" width={120} height={40} sx={{ borderRadius: '15px', bgcolor: 'rgba(102, 126, 234, 0.1)' }} />
+                    <Skeleton variant="rounded" width={120} height={40} sx={{ borderRadius: '15px', bgcolor: 'rgba(255, 87, 34, 0.1)' }} />
+                    <Skeleton variant="rounded" width={120} height={40} sx={{ borderRadius: '15px', bgcolor: 'rgba(0, 150, 136, 0.1)' }} />
+                  </Stack>
                 </Stack>
               </Box>
             ))}
@@ -164,32 +310,117 @@ export default function Feed() {
       </Box>
 
       {/* Right Sidebar */}
-      <Box sx={{ width: 300, flexShrink: 0 }}>
-        <Paper sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: 'text.primary' }}>
-            النشاطات الأخيرة
+      <Box sx={{ width: 320, flexShrink: 0 }}>
+        <Paper sx={{ 
+          p: 3, 
+          borderRadius: '20px', 
+          mb: 3,
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              mb: 3, 
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: '"Cairo", sans-serif'
+            }}
+          >
+            🔔 النشاطات الأخيرة
           </Typography>
-          <Stack spacing={1}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>U</Avatar>
+          <Stack spacing={2}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              p: 2,
+              borderRadius: '15px',
+              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 25px rgba(102, 126, 234, 0.2)'
+              }
+            }}>
+              <Avatar sx={{ 
+                width: 48, 
+                height: 48, 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                fontSize: '1.2rem',
+                fontWeight: 700
+              }}>
+                🎉
+              </Avatar>
               <Box>
-                <Typography variant="body2" fontWeight={500}>مرحبا بك في OtakuHub!</Typography>
-                <Typography variant="caption" color="text.secondary">ابدأ بإنشاء تدوينتك الأولى</Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ fontFamily: '"Cairo", sans-serif' }}>
+                  مرحبا بك في OtakuHub!
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  ابدأ بإنشاء تدوينتك الأولى
+                </Typography>
               </Box>
             </Box>
           </Stack>
         </Paper>
 
-        <Paper sx={{ p: 2, borderRadius: 2 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: 'text.primary' }}>
-            اقتراحات لك
+        <Paper sx={{ 
+          p: 3, 
+          borderRadius: '20px',
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              mb: 3, 
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: '"Cairo", sans-serif'
+            }}
+          >
+            💡 اقتراحات لك
           </Typography>
-          <Stack spacing={1}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>O</Avatar>
+          <Stack spacing={2}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              p: 2,
+              borderRadius: '15px',
+              background: 'linear-gradient(135deg, rgba(255, 87, 34, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 25px rgba(255, 87, 34, 0.2)'
+              }
+            }}>
+              <Avatar sx={{ 
+                width: 48, 
+                height: 48, 
+                background: 'linear-gradient(135deg, #FF5722 0%, #FF9800 100%)',
+                fontSize: '1.2rem',
+                fontWeight: 700
+              }}>
+                🚀
+              </Avatar>
               <Box>
-                <Typography variant="body2" fontWeight={500}>اكتشف المحتوى الجديد</Typography>
-                <Typography variant="caption" color="text.secondary">تابع المستخدمين الآخرين</Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ fontFamily: '"Cairo", sans-serif' }}>
+                  اكتشف المحتوى الجديد
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  تابع المستخدمين الآخرين
+                </Typography>
               </Box>
             </Box>
           </Stack>
@@ -197,6 +428,7 @@ export default function Feed() {
       </Box>
 
       <CreateBlogDialog open={open} onClose={() => setOpen(false)} onCreated={load} />
+      </Box>
     </Box>
   )
 }
