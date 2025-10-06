@@ -24,7 +24,10 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Snackbar
+  Snackbar,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -34,9 +37,13 @@ import {
   Gavel as GavelIcon,
   Dashboard as DashboardIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  ExpandMore as ExpandMoreIcon,
+  Delete as DeleteIcon,
+  SwapHoriz as SwapHorizIcon,
+  ExitToApp as ExitToAppIcon
 } from '@mui/icons-material'
-import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage } from '../lib/api'
+import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup } from '../lib/api'
 
 export default function GroupDashboard() {
   const { groupName } = useParams()
@@ -56,15 +63,18 @@ export default function GroupDashboard() {
   const [isSearchingMembers, setIsSearchingMembers] = useState(false)
   const [hasSearchedMembers, setHasSearchedMembers] = useState(false)
   const [kickDialog, setKickDialog] = useState({ open: false, username: '' })
-  
+  const [transferDialog, setTransferDialog] = useState({ open: false, username: '', userId: '' })
+  const [transferring, setTransferring] = useState(false)
   // Settings state
   const [groupData, setGroupData] = useState({ description: '', privacy: '', photo: '' })
   const [settingsForm, setSettingsForm] = useState({ description: '', privacy: 'public' })
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [savingSettings, setSavingSettings] = useState(false)
-  
-  // Error/Success state
+  const [deleteGroupDialog, setDeleteGroupDialog] = useState(false)
+  const [deletingGroup, setDeletingGroup] = useState(false)
+  const [deleteExpanded, setDeleteExpanded] = useState(false)
+  const [userRole, setUserRole] = useState('')
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' })
 
   useEffect(() => {
@@ -75,10 +85,19 @@ export default function GroupDashboard() {
   const loadGroupData = async () => {
     try {
       const { data } = await getGroup(groupName)
-      setGroupData(data)
+      console.log('GroupDashboard - Full response:', data)
+      console.log('GroupDashboard - Role from API:', data.role)
+      console.log('GroupDashboard - GroupData role:', data.groupData?.role)
+      
+      // Try to get role from different possible locations
+      const role = data.role || data.groupData?.role || ''
+      console.log('GroupDashboard - Final role:', role)
+      
+      setGroupData(data.groupData || data)
+      setUserRole(role)
       setSettingsForm({ 
-        description: data.description || '', 
-        privacy: data.privacy || 'public' 
+        description: data.description || data.groupData?.description || '', 
+        privacy: data.privacy || data.groupData?.privacy || 'public' 
       })
     } catch (err) {
       console.error('Error loading group data:', err)
@@ -163,7 +182,8 @@ export default function GroupDashboard() {
     try {
       setProcessing(id)
       await acceptUser(groupName, id)
-      setPendingUsers(prev => prev.filter(user => user.id !== id))
+      setPendingUsers(prev => prev.filter(user => user.requestId !== id))
+      setAllPendingUsers(prev => prev.filter(user => user.requestId !== id))
       setSnackbar({ open: true, message: 'تم قبول العضو بنجاح', severity: 'success' })
     } catch (err) {
       console.error('Error accepting user:', err)
@@ -181,7 +201,8 @@ export default function GroupDashboard() {
     try {
       setProcessing(id)
       await cancelUser(groupName, id)
-      setPendingUsers(prev => prev.filter(user => user.id !== id))
+      setPendingUsers(prev => prev.filter(user => user.requestId !== id))
+      setAllPendingUsers(prev => prev.filter(user => user.requestId !== id))
       setSnackbar({ open: true, message: 'تم رفض العضو', severity: 'info' })
     } catch (err) {
       console.error('Error rejecting user:', err)
@@ -219,16 +240,25 @@ export default function GroupDashboard() {
   }
 
   const handleRoleChange = async (username, newRole) => {
+    console.log('🔄 Changing role for:', username, 'to:', newRole)
+    console.log('🔑 Token exists:', storage.token ? 'YES' : 'NO')
+    console.log('👤 Current user:', storage.user?.username)
+    
     try {
       setProcessing(username)
+      console.log('📡 Calling changeRole API...')
       await changeRole(groupName, username, newRole)
+      console.log('✅ Role changed successfully')
+      
       // Refresh search after role change
       await searchMembersFunc()
       // Refresh user data to update cached role
       await refreshUserData()
       setSnackbar({ open: true, message: 'تم تغيير الصلاحية بنجاح', severity: 'success' })
     } catch (err) {
-      console.error('Error changing role:', err)
+      console.error('💥 Error changing role:', err)
+      console.error('💥 Error response:', err.response?.data)
+      console.error('💥 Error status:', err.response?.status)
       setSnackbar({ 
         open: true, 
         message: err.response?.data?.message || 'فشل تغيير الصلاحية', 
@@ -261,6 +291,36 @@ export default function GroupDashboard() {
       })
     } finally {
       setProcessing(null)
+    }
+  }
+
+  const handleTransferOwnership = async (member) => {
+    setTransferDialog({ open: true, username: member.username, userId: member.userId })
+  }
+
+  const confirmTransferOwnership = async () => {
+    const { username, userId } = transferDialog
+    setTransferDialog({ open: false, username: '', userId: '' })
+    
+    try {
+      setTransferring(true)
+      await changeOwner(groupName, userId)
+      setSnackbar({ open: true, message: 'تم نقل الملكية بنجاح', severity: 'success' })
+      // Refresh the members list to update roles
+      await searchMembersFunc()
+      // Redirect to group page since user is no longer owner
+      setTimeout(() => {
+        navigate(`/groups/${groupName}`)
+      }, 2000)
+    } catch (err) {
+      console.error('Error transferring ownership:', err)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل نقل الملكية', 
+        severity: 'error' 
+      })
+    } finally {
+      setTransferring(false)
     }
   }
 
@@ -298,6 +358,46 @@ export default function GroupDashboard() {
       })
     } finally {
       setSavingSettings(false)
+    }
+  }
+
+  const handleDeleteGroup = async () => {
+    try {
+      setDeletingGroup(true)
+      await deleteGroup(groupName)
+      setSnackbar({ open: true, message: 'تم حذف المجموعة بنجاح', severity: 'success' })
+      // Redirect to groups page after successful deletion
+      setTimeout(() => {
+        navigate('/groups')
+      }, 2000)
+    } catch (err) {
+      console.error('Error deleting group:', err)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل حذف المجموعة', 
+        severity: 'error' 
+      })
+    } finally {
+      setDeletingGroup(false)
+      setDeleteGroupDialog(false)
+    }
+  }
+
+  const handleLeaveGroup = async () => {
+    try {
+      await leaveGroup(groupName)
+      setSnackbar({ open: true, message: 'تم مغادرة المجموعة بنجاح', severity: 'success' })
+      // Redirect to groups page after leaving
+      setTimeout(() => {
+        navigate('/groups')
+      }, 2000)
+    } catch (err) {
+      console.error('Error leaving group:', err)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل مغادرة المجموعة', 
+        severity: 'error' 
+      })
     }
   }
 
@@ -675,10 +775,14 @@ export default function GroupDashboard() {
           <Box>
             <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
               <Typography variant="h5" fontWeight={700} mb={4}>
-                ⚙️ إعدادات المجموعة
+                ⚙️ {userRole === 'owner' ? 'إعدادات المجموعة' : 'خيارات العضوية'}
               </Typography>
               
-              <Stack spacing={4}>
+              {/* Debug log */}
+              {console.log('Settings Tab - userRole:', userRole, 'isOwner:', userRole === 'owner')}
+              
+              {userRole === 'owner' ? (
+                <Stack spacing={4}>
                 {/* Group Photo */}
                 <Box>
                   <Typography variant="h6" fontWeight={600} mb={2}>صورة المجموعة</Typography>
@@ -760,7 +864,140 @@ export default function GroupDashboard() {
                     {savingSettings ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                   </Button>
                 </Box>
+
+                {/* Danger Zone */}
+                <Divider sx={{ my: 4 }} />
+                <Box>
+                  <Typography variant="h6" fontWeight={600} mb={2} color="error.main">
+                    ⚠️ منطقة الخطر
+                  </Typography>
+                  <Accordion 
+                    expanded={deleteExpanded}
+                    onChange={() => setDeleteExpanded(!deleteExpanded)}
+                    sx={{ 
+                      border: '2px solid', 
+                      borderColor: 'error.main',
+                      borderRadius: '12px !important',
+                      '&:before': { display: 'none' },
+                      boxShadow: 'none'
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon sx={{ color: 'error.main' }} />}
+                      sx={{
+                        bgcolor: 'error.light',
+                        borderRadius: deleteExpanded ? '12px 12px 0 0' : '12px',
+                        '& .MuiAccordionSummary-content': {
+                          alignItems: 'center',
+                          gap: 2
+                        }
+                      }}
+                    >
+                      <DeleteIcon sx={{ color: 'error.main', fontSize: 28 }} />
+                      <Typography variant="h6" fontWeight={700} color="error.dark">
+                        حذف المجموعة نهائياً
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails
+                      sx={{
+                        bgcolor: 'error.light',
+                        borderRadius: '0 0 12px 12px',
+                        pt: 0
+                      }}
+                    >
+                      <Box sx={{ p: 2 }}>
+                        <Typography variant="body2" color="error.dark" mb={2} fontWeight={600}>
+                          ⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه وسيتم حذف:
+                        </Typography>
+                        <Box component="ul" sx={{ mb: 3, pl: 2 }}>
+                          <Typography component="li" variant="body2" color="error.dark" mb={0.5}>
+                            🗂️ جميع المنشورات والتعليقات
+                          </Typography>
+                          <Typography component="li" variant="body2" color="error.dark" mb={0.5}>
+                            👥 جميع الأعضاء وطلبات الانضمام
+                          </Typography>
+                          <Typography component="li" variant="body2" color="error.dark" mb={0.5}>
+                            ⚙️ جميع الإعدادات والبيانات
+                          </Typography>
+                          <Typography component="li" variant="body2" color="error.dark">
+                            📸 الصور والملفات المرفقة
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="contained"
+                          color="error"
+                          size="large"
+                          onClick={() => setDeleteGroupDialog(true)}
+                          startIcon={<DeleteIcon />}
+                          sx={{ 
+                            minWidth: 250,
+                            fontWeight: 700,
+                            fontSize: '1.1rem',
+                            py: 1.5,
+                            '&:hover': {
+                              bgcolor: 'error.dark',
+                              transform: 'scale(1.02)'
+                            },
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          حذف المجموعة نهائياً
+                        </Button>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                </Box>
               </Stack>
+              ) : (
+                // Admin section - Leave Group only
+                <Box>
+                  <Typography variant="h6" fontWeight={600} mb={3} color="text.secondary">
+                    كونك Admin، يمكنك مغادرة المجموعة فقط
+                  </Typography>
+                  
+                  <Paper 
+                    sx={{ 
+                      p: 3, 
+                      border: '2px solid', 
+                      borderColor: 'warning.main',
+                      bgcolor: 'warning.light',
+                      borderRadius: 2
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={2} mb={2}>
+                      <ExitToAppIcon sx={{ color: 'warning.main', fontSize: 28 }} />
+                      <Typography variant="h6" fontWeight={700} color="warning.dark">
+                        مغادرة المجموعة
+                      </Typography>
+                    </Stack>
+                    
+                    <Typography variant="body2" color="warning.dark" mb={3}>
+                      ⚠️ تنبيه: بعد المغادرة لن تستطيع الوصول لإعدادات المجموعة أو إدارة الأعضاء
+                    </Typography>
+                    
+                    <Button
+                      variant="contained"
+                      color="warning"
+                      size="large"
+                      onClick={handleLeaveGroup}
+                      startIcon={<ExitToAppIcon />}
+                      sx={{ 
+                        minWidth: 200,
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        py: 1.5,
+                        '&:hover': {
+                          bgcolor: 'warning.dark',
+                          transform: 'scale(1.02)'
+                        },
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      مغادرة المجموعة
+                    </Button>
+                  </Paper>
+                </Box>
+              )}
             </Paper>
           </Box>
         )}
@@ -864,6 +1101,23 @@ export default function GroupDashboard() {
                               </Select>
                             </FormControl>
                             <Button
+                              variant="outlined"
+                              color="primary"
+                              size="small"
+                              startIcon={<SwapHorizIcon />}
+                              onClick={() => handleTransferOwnership(member)}
+                              disabled={processing === member.username || transferring}
+                              sx={{ 
+                                minWidth: 120,
+                                '&:hover': {
+                                  bgcolor: 'primary.light',
+                                  color: 'white'
+                                }
+                              }}
+                            >
+                              نقل الملكية
+                            </Button>
+                            <Button
                               variant="contained"
                               color="error"
                               size="small"
@@ -936,6 +1190,117 @@ export default function GroupDashboard() {
             color="error"
           >
             طرد
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Transfer Ownership Dialog */}
+      <Dialog
+        open={transferDialog.open}
+        onClose={() => setTransferDialog({ open: false, username: '', userId: '' })}
+        PaperProps={{
+          sx: { borderRadius: 2, minWidth: 450 }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700, 
+          fontSize: '1.4rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          color: 'primary.main'
+        }}>
+          <SwapHorizIcon sx={{ fontSize: 28 }} />
+          نقل ملكية المجموعة
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body1" color="text.primary" mb={2}>
+            هل أنت متأكد من نقل ملكية المجموعة إلى <strong>{transferDialog.username}</strong>؟
+          </Typography>
+          <Box sx={{ 
+            bgcolor: 'warning.light', 
+            p: 2, 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'warning.main'
+          }}>
+            <Typography variant="body2" color="warning.dark" fontWeight={600} mb={1}>
+              ⚠️ تنبيه مهم:
+            </Typography>
+            <Box component="ul" sx={{ pl: 2, m: 0 }}>
+              <Typography component="li" variant="body2" color="warning.dark">
+                ستفقد جميع صلاحيات المالك
+              </Typography>
+              <Typography component="li" variant="body2" color="warning.dark">
+                لن تستطيع الوصول لإعدادات المجموعة
+              </Typography>
+              <Typography component="li" variant="body2" color="warning.dark">
+                سيصبح {transferDialog.username} المالك الجديد
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setTransferDialog({ open: false, username: '', userId: '' })}
+            variant="outlined"
+            disabled={transferring}
+          >
+            إلغاء
+          </Button>
+          <Button
+            onClick={confirmTransferOwnership}
+            variant="contained"
+            color="primary"
+            disabled={transferring}
+            startIcon={<SwapHorizIcon />}
+            sx={{ minWidth: 150 }}
+          >
+            {transferring ? 'جاري النقل...' : 'نقل الملكية'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Group Confirmation Dialog */}
+      <Dialog
+        open={deleteGroupDialog}
+        onClose={() => setDeleteGroupDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 2, minWidth: 500 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem', color: 'error.main' }}>
+          ⚠️ تأكيد حذف المجموعة
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" color="text.secondary" mb={2}>
+            هل أنت متأكد من حذف مجموعة <strong>{groupName}</strong> نهائياً؟
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ fontWeight: 600 }}>
+            ⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه وسيتم حذف:
+          </Typography>
+          <Box component="ul" sx={{ mt: 1, pl: 2 }}>
+            <Typography component="li" variant="body2" color="error">جميع المنشورات والتعليقات</Typography>
+            <Typography component="li" variant="body2" color="error">جميع الأعضاء وطلبات الانضمام</Typography>
+            <Typography component="li" variant="body2" color="error">جميع الإعدادات والبيانات</Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteGroupDialog(false)}
+            variant="outlined"
+            disabled={deletingGroup}
+          >
+            إلغاء
+          </Button>
+          <Button
+            onClick={handleDeleteGroup}
+            variant="contained"
+            color="error"
+            disabled={deletingGroup}
+            sx={{ minWidth: 150 }}
+          >
+            {deletingGroup ? 'جاري الحذف...' : '🗑️ حذف نهائياً'}
           </Button>
         </DialogActions>
       </Dialog>

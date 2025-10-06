@@ -20,6 +20,7 @@ const {GroupMember} = require('./groupMember');
 const sequelize = require('../config/database');
 
 const {pendingRequestsGroup} = require('./pendingRequestsGroupModel')
+const {loggerGroup} = require('./loggerGroupModel')
 
 
 
@@ -123,11 +124,12 @@ const {requestFriend} = require('./requestFriendModel')
         User.belongsToMany(Groups,{through:"pendingRequestsGroup", as: "PendingGroups",foreignKey:'userId',otherKey:'groupId',onDelete:'CASCADE'});
         Groups.belongsToMany(User, { through: 'pendingRequestsGroup', foreignKey: 'groupId' , as: "PendingUsers",   otherKey: 'userId', onDelete: 'CASCADE' });
 
-        //relation groups to blogs
-        
-        Groups.hasMany(Blogs,{foreignKey:'groupId',onDelete:'CASCADE'});
+        // relationship User to loggerGroup
+        User.hasOne(loggerGroup,{foreignKey:'userId',onDelete:'CASCADE'})
+        loggerGroup.belongsTo(User,{foreignKey:'userId'})
 
-        Blogs.belongsTo(Groups,{foreignKey:'groupId'});
+        
+    
 //Blogs ReelationShips
 
 
@@ -189,4 +191,29 @@ const {requestFriend} = require('./requestFriendModel')
         // nestedComments.belongsTo(nestedComments,{ as: 'Parent',foreignKey:'commentId'})
 
 
-module.exports = {User,Blogs,dislikesBlogs,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+
+
+// Group
+
+        //relation ship group to loggerGroup
+
+
+
+        Groups.hasMany(loggerGroup,{foreignKey:'groupId',onDelete:'CASCADE'})
+        loggerGroup.belongsTo(Groups,{foreignKey:'groupId'})
+
+        //relation groups to blogs
+
+        Groups.hasMany(Blogs,{foreignKey:'groupId',onDelete:'CASCADE'});
+
+        Blogs.belongsTo(Groups,{foreignKey:'groupId'});
+
+
+
+
+
+
+
+
+
+module.exports = {User,Blogs,dislikesBlogs,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

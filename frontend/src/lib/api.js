@@ -107,6 +107,8 @@ export const addGroupPost = (formData) => api.post('/api/addPost', formData, {
 export const searchMembers = (groupName, username) => api.post('/api/group/searchMembers', { groupName, username })
 export const changeRole = (groupName, username, newRole) => api.post('/api/group/changeRole', { groupName, username, newRole })
 export const kickUser = (groupName, username) => api.post('/api/group/kickUser', { groupName, username })
-export const updateGroupData = (formData) => api.post('/api/groups/updateGroupData', formData, {
+export const updateGroupData = (formData) => api.post('/api/group/updateGroupData', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 })
+export const deleteGroup = (groupName) => api.post('/api/group/deleteGroup', { groupName })
+export const changeOwner = (groupName, newOwner) => api.post('/api/group/changeOwner', { groupName, newOwner })

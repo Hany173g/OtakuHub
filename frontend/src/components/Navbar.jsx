@@ -156,7 +156,7 @@ export default function Navbar() {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
           <Typography 
-            variant={{ xs: 'h6', sm: 'h5' }} 
+            variant="h5" 
             sx={{ 
               fontWeight: 800, 
               color: 'white',

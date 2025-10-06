@@ -18,7 +18,7 @@ const server = require('http').createServer(app)
 
 const io = socketIo(server, {
   cors: {
-    origin: [ "http://localhost:3000",], // رابط الفرونت اند
+    origin: [ "http://localhost:3000","https://319f6634ee93.ngrok-free.app"], // رابط الفرونت اند
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -37,10 +37,9 @@ io.on('connection', socket => {
 
 
 
-//Server Settings
-// CORS must be first to handle preflight requests
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

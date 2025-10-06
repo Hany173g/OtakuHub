@@ -7,11 +7,11 @@ const sequelize = require('../config/database');
 
 
 
-// sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
-//   .then(() => {
-//     console.log("All tables are synced!");
-//   })
-//   .catch(err => console.log("Error syncing tables:", err));
+sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
+  .then(() => {
+    console.log("All tables are synced!");
+  })
+  .catch(err => console.log("Error syncing tables:", err));
 
 
 

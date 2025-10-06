@@ -56,18 +56,16 @@ router.post('/group/searchMembers',groupContoller.searchMembers)
 
 
 
-router.post('/group/changeRole',groupContoller.changeRole)
-
 router.post('/group/kickUser',groupContoller.kickUser)
-
-
 
 router.post('/group/updateGroupData', checkSizePhoto, groupContoller.updateGroupData);
 
+router.post('/group/deleteGroup', groupContoller.deleteGroup);
 
 
+router.post('/group/changeOwner',groupContoller.changeOwner)
 
-
+router.post('/group/changeRole',groupContoller.changeRole)
 
 
 

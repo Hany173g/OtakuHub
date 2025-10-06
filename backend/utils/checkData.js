@@ -3,7 +3,7 @@
 
 const {hashPassword} = require('./auth')
 
-const{Groups,pendingRequestsGroup,User,Blogs,friends,commentsBlogs} = require('../models/Relationships')
+const{Groups,pendingRequestsGroup,User,loggerGroup,Blogs,friends,commentsBlogs} = require('../models/Relationships')
 
 const {Op, where} = require('sequelize')
 
@@ -274,7 +274,8 @@ const userAction = async(groupName,id,data) =>
        let {group} =  await checkAcessMore(data,groupName)
    
         let user = await group.getPendingUsers({through:{where:{id}}})
-      
+        
+        console.log(user)
         if (user.length < 1)
         {
             throw new Error("هذا الشخص غير موجود")
@@ -345,4 +346,23 @@ const checkAcess = async(data,groupName) =>
 
 
 
-module.exports = {checkData,checkChangeRole,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}
+const addLogger = async(group,userId,status) => {
+    if (!group || !userId)
+    {
+        throw new Error("البينات ليست كامله")
+    }
+    if (!["join", "leave", "newOwner", "kick"].includes(status)) {
+        throw new Error("هذا القيمه غير موجوده")
+    }
+    await group.addLoggerGroup({userId,status})
+}
+
+
+
+
+
+
+
+
+
+module.exports = {addLogger,checkData,checkChangeRole,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}

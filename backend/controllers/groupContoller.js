@@ -2,7 +2,7 @@ const{User,Blogs,GroupMember,pendingRequestsGroup,Groups,nestedComments,dislikes
 
 
 const {isUser} =require('../utils/isUser')
-const {checkGroupData,checkGroup,checkRole, checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
+const {checkGroupData,checkGroup,checkRole,addLogger, checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
 
 
@@ -11,6 +11,9 @@ const {createBlog} = require('../service/blogService')
 
 
 
+
+const sequelize = require('../config/database');
+const { where } = require('sequelize')
 
 
 
@@ -86,7 +89,7 @@ exports.joinGroup = async(req,res) =>{
         {
             await group.addPendingUser(user);
         }
-        
+       
         res.status(200).json()
     }catch(err)
     {
@@ -191,8 +194,14 @@ exports.leaveGroup = async(req,res) => {
         {
             throw new Error("انت لست عضو بلفعل")
         }
-         await group.removeUser(user)
+       
+        if (checkUser[0].GroupMember.role === "owner")
+        {
+            throw new Error("المالك لا يمكنه مغادرة الجروب. يجب نقل الملكية أولًا")
+        }
+        await group.removeUser(user)
         await group.decrement('numberMembers', { by: 1 });
+         await addLogger(group,req.user.id,"leave")
         res.status(200).json()
     }catch(err)
     {
@@ -225,7 +234,7 @@ exports.cancelJoinGroup = async(req,res) => {
         res.status(200).json()
     }catch(err)
     {
-        res.status(200).json({message:err.message})   
+        res.status(400).json({message:err.message})   
     }
 }
 
@@ -273,9 +282,13 @@ exports.acceptUser = async(req,res) => {
         let user = data.user;
         await group.addUser(user)
         await group.increment('numberMembers', { by: 1 });
+        console.log(group);
+
+         await addLogger(group,req.user.id,"join")
         res.status(201).json()  
     }catch(err)
     {
+        console.log(err.message)
         res.status(400).json({message:err.message})
     }
 }
@@ -482,6 +495,7 @@ exports.kickUser = async(req,res) => {
        await checkRole(kickUser[0].GroupMember.role,owner)
         await kickUser[0].GroupMember.destroy();
         await group.decrement('numberMembers', { by: 1 });
+         await addLogger(group,req.user.id,"kick")
         res.status(201).json()
     }catch(err)
     {
@@ -527,14 +541,85 @@ exports.updateGroupData = async(req,res) => {
         else
         {
             checkGroupData(groupName,desc,null,priv,group,false,false)  
+             await group.update({description:desc,privacy:priv})
         }
-       
+       res.status(200).json();
     }catch(err)
     {
         console.log(err.message)
         res.status(400).json({message:err.message})
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+exports.deleteGroup = async(req,res) => {
+    try{
+        let {groupName} = req.body;
+       let data =  await checkAcess(req.user,groupName)
+       let group = data.group;
+       await group.destroy();
+       res.status(201).json()
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+
+
+
+exports.changeOwner = async(req,res) => {
+        const t = await sequelize.transaction();
+    try{
+        const{newOwner,groupName} = req.body;
+         if (!newOwner)
+        {
+            throw new Error("البينات ليست كامله")
+        }
+        let data =  await checkAcess(req.user,groupName)
+        let owner = data.owner;
+        let group = data.group;
+        let checkUserGroup = await group.getUsers({through:{where:{userId:newOwner}}})
+        if (checkUserGroup.length < 1)
+        {
+            throw new Error("هذا الشخص ليس عضو في الجروب")
+        }
+     
+        await owner[0].GroupMember.update({role:"member"},{transaction:t});
+        await checkUserGroup[0].GroupMember.update({role:"owner"},{transaction:t})
+        console.log(owner[0].GroupMember.role)
+        console.log(checkUserGroup[0].GroupMember.role)
+        await addLogger(group,req.user.id,"newOwner")
+        await t.commit();
+          
+        res.status(201).json();
+    }catch(err)
+    {
+        await t.rollback(); 
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+
 
 
 
