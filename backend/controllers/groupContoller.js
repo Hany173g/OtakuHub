@@ -1,4 +1,4 @@
-const{User,Blogs,GroupMember,pendingRequestsGroup,Groups,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,GroupMember,historyDeleteGroup,pendingRequestsGroup,Groups,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
 
 
 const {isUser} =require('../utils/isUser')
@@ -201,7 +201,7 @@ exports.leaveGroup = async(req,res) => {
         }
         await group.removeUser(user)
         await group.decrement('numberMembers', { by: 1 });
-         await addLogger(group,req.user.id,"leave")
+         await addLogger(group,user.id,"leave")
         res.status(200).json()
     }catch(err)
     {
@@ -280,11 +280,10 @@ exports.acceptUser = async(req,res) => {
         let data = await userAction(groupName,id,req.user);
         let group = data.group;
         let user = data.user;
+        await addLogger(group,user[0].id,"join")
         await group.addUser(user)
         await group.increment('numberMembers', { by: 1 });
-        console.log(group);
-
-         await addLogger(group,req.user.id,"join")
+ 
         res.status(201).json()  
     }catch(err)
     {
@@ -481,6 +480,7 @@ exports.kickUser = async(req,res) => {
         let data = await checkAcessMore(req.user,groupName);
         let group = data.group;
         let owner = data.owner;
+
         let user = await User.findOne({where:{username}});
         if (!user)
         {
@@ -495,7 +495,7 @@ exports.kickUser = async(req,res) => {
        await checkRole(kickUser[0].GroupMember.role,owner)
         await kickUser[0].GroupMember.destroy();
         await group.decrement('numberMembers', { by: 1 });
-         await addLogger(group,req.user.id,"kick")
+         await addLogger(group,user.id,"kick")
         res.status(201).json()
     }catch(err)
     {
@@ -604,7 +604,7 @@ exports.changeOwner = async(req,res) => {
         await checkUserGroup[0].GroupMember.update({role:"owner"},{transaction:t})
         console.log(owner[0].GroupMember.role)
         console.log(checkUserGroup[0].GroupMember.role)
-        await addLogger(group,req.user.id,"newOwner")
+        await addLogger(group,checkUserGroup[0].id,"newOwner")
         await t.commit();
           
         res.status(201).json();
@@ -620,6 +620,60 @@ exports.changeOwner = async(req,res) => {
 
 
 
+
+exports.getGroupLogger = async(req,res) => {
+    try{
+        const {status} = req.params;
+        const{groupName} = req.body;
+        console.log(status)
+        if (!status)
+        {
+            throw new Error("البينات ليست كامله")
+        }
+        else if (!["join", "leave", "newOwner", "kick"].includes(status)) {
+            throw new Error("هذا القيمه غير موجوده")
+        }
+         let data =  await checkAcessMore(req.user,groupName)
+         let group = data.group;
+         let logger = await group.getLoggerGroup({where:{status}});
+         const userIds = logger.map(log => log.userId);
+         let users = await User.findAll({where:{id:userIds}});
+            
+         res.status(200).json({logger,users})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+exports.getHistoryDelete = async(req,res) => {
+    try{
+        const {service} = req.params;
+        const {groupName} = req.body;
+        if (!service ||!groupName ||!['posts','comments'].includes(service))
+        {
+            throw new Error("البينات ليست كامله")
+        }
+        let data =  await checkAcessMore(req.user,groupName)
+        let group = data.group
+        
+        // Map frontend service names to database service names
+        const serviceMapping = {
+          'posts': 'blog',
+          'comments': 'comment'
+        }
+        const dbService = serviceMapping[service] || service
+        
+        let historyDelete = await group.getHistoryDeleteGroups({service: dbService})
+        
+        res.status(200).json({historyDelete})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
 
 
 

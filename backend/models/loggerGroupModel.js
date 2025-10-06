@@ -29,6 +29,14 @@ const loggerGroup = sequelize.define('loggerGroup', {
     },
     status:{
         type:DataTypes.ENUM("join","leave","newOwner","kick")
+    },
+    username:{
+        type:DataTypes.STRING,
+        allowNull:false
+    },
+    photo:{
+        type:DataTypes.STRING,
+        allowNull:false
     }
 },{
     tableName:"loggerGroups",

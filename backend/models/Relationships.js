@@ -23,7 +23,7 @@ const {pendingRequestsGroup} = require('./pendingRequestsGroupModel')
 const {loggerGroup} = require('./loggerGroupModel')
 
 
-
+const {historyDeleteGroup} = require('./historyDeleteGroupModel');
 
 
 const {requestFriend} = require('./requestFriendModel')
@@ -124,9 +124,6 @@ const {requestFriend} = require('./requestFriendModel')
         User.belongsToMany(Groups,{through:"pendingRequestsGroup", as: "PendingGroups",foreignKey:'userId',otherKey:'groupId',onDelete:'CASCADE'});
         Groups.belongsToMany(User, { through: 'pendingRequestsGroup', foreignKey: 'groupId' , as: "PendingUsers",   otherKey: 'userId', onDelete: 'CASCADE' });
 
-        // relationship User to loggerGroup
-        User.hasOne(loggerGroup,{foreignKey:'userId',onDelete:'CASCADE'})
-        loggerGroup.belongsTo(User,{foreignKey:'userId'})
 
         
     
@@ -185,21 +182,13 @@ const {requestFriend} = require('./requestFriendModel')
         commentsBlogs.hasMany(nestedComments,{foreignKey:'commentId',onDelete:'CASCADE'});
         nestedComments.belongsTo(commentsBlogs,{foreignKey:'commentId'});
 
-
-        // relation nestedComments
-        // nestedComments.hasMany(nestedComments,{ as: 'Replies',foreignKey:'commentId',onDelete:'CASCADE'});
-        // nestedComments.belongsTo(nestedComments,{ as: 'Parent',foreignKey:'commentId'})
-
-
-
-
 // Group
 
         //relation ship group to loggerGroup
 
 
 
-        Groups.hasMany(loggerGroup,{foreignKey:'groupId',onDelete:'CASCADE'})
+        Groups.hasMany(loggerGroup,{foreignKey:'groupId',as:"loggerGroup",onDelete:'CASCADE'})
         loggerGroup.belongsTo(Groups,{foreignKey:'groupId'})
 
         //relation groups to blogs
@@ -208,6 +197,10 @@ const {requestFriend} = require('./requestFriendModel')
 
         Blogs.belongsTo(Groups,{foreignKey:'groupId'});
 
+        //relation group to histroyDeleteGroup
+
+        Groups.hasMany(historyDeleteGroup,{foreignKey:'groupId',onDelete:'CASCADE'});
+        historyDeleteGroup.belongsTo(Groups,{foreignKey:'groupId'})
 
 
 
@@ -215,5 +208,4 @@ const {requestFriend} = require('./requestFriendModel')
 
 
 
-
-module.exports = {User,Blogs,dislikesBlogs,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+module.exports = {User,Blogs,dislikesBlogs,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

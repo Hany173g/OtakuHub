@@ -6,7 +6,7 @@ const sequelize = require('../config/database');
 
 
 
-
+// 
 sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
   .then(() => {
     console.log("All tables are synced!");

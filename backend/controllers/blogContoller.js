@@ -1,4 +1,4 @@
-const{User,Blogs,GroupMember,Groups,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,GroupMember,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
 
 
 
@@ -11,6 +11,7 @@ const {createBlog} = require('../service/blogService')
 
 const {getBlogs} = require('../service/getBlogs')
 const { where } = require('sequelize')
+const { promises } = require('nodemailer/lib/xoauth2')
 
 
 
@@ -172,6 +173,21 @@ exports.getBlogs = async(req,res) => {
 
 
 
+const createHistoryGroup = async(blog,user,group,service) => {
+     const [ownerService,administrator,roleDeleteService] = await Promise.all([
+                 User.findByPk(blog.userId),
+                  group.getUsers({through:{role:"owner"}}),
+                   group.getUsers({id:user.id})
+            ])
+            
+                await group.createHistoryDeleteGroup(
+                    {
+                administratorDelete:user.username,
+                usernameOwnerBlogDelete:ownerService.username,
+                 ownerInThisTime:administrator[0].username,contentDelete:blog.title,
+                    roleDeleteBlog:roleDeleteService[0].GroupMember.role,service})
+            
+}
 
 
 
@@ -185,16 +201,17 @@ exports.deleteBlog = async(req,res) => {
            {
             throw new Error("هذا المقاله غير موجده")
            }
-           console.log(blog.groupId)
-           let checkRole = await checkGroupRole(blog.groupId,user)
-           if (checkRole)
+       
+           let {checkRole,group} = await checkGroupRole(blog.groupId,user,blog.userId)
+           if (checkRole && user.id != blog.userId)
            {
-            
+            await createHistoryGroup(blog,user,group,"blog")
            }
            else if (blog.userId != user.id)
            {
              throw new Error("يجب ان تكون انت صاحب المقال لتسطيع حذفه")
            }
+        
 
            await blog.destroy();
           res.status(200).json({message:"تم حذف المقاله"}) 
@@ -223,10 +240,10 @@ exports.deleteComment = async(req,res) => {
                 throw new Error("هذا التعليق غير موجود")    
             } 
         let blog = await Blogs.findOne({ where: { id: comment.blogId } });
-            let checkRole = await checkGroupRole(blog.groupId,user)
+            let {checkRole,group} = await checkGroupRole(blog.groupId,user)
            if (checkRole)
            {
-            
+             await createHistoryGroup(blog,user,group,"comment")
            }
             else if (comment.userId !== user.id) {
                 throw new Error("ليس لديك صلاحية لحذف هذا التعليق");

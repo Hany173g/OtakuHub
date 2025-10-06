@@ -67,6 +67,14 @@ router.post('/group/changeOwner',groupContoller.changeOwner)
 
 router.post('/group/changeRole',groupContoller.changeRole)
 
+router.post('/group/getGroupLogger/:status',groupContoller.getGroupLogger)
+
+
+router.post('/group/getHistoryDelete/:service',groupContoller.getHistoryDelete)
+
+
+
+
 
 
 module.exports = router

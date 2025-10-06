@@ -3,7 +3,7 @@
 
 const {hashPassword} = require('./auth')
 
-const{Groups,pendingRequestsGroup,User,loggerGroup,Blogs,friends,commentsBlogs} = require('../models/Relationships')
+const{Groups,historyDeleteGroup,pendingRequestsGroup,User,loggerGroup,Blogs,friends,commentsBlogs} = require('../models/Relationships')
 
 const {Op, where} = require('sequelize')
 
@@ -275,7 +275,7 @@ const userAction = async(groupName,id,data) =>
    
         let user = await group.getPendingUsers({through:{where:{id}}})
         
-        console.log(user)
+        
         if (user.length < 1)
         {
             throw new Error("هذا الشخص غير موجود")
@@ -289,7 +289,7 @@ const userAction = async(groupName,id,data) =>
 
 
 
-const checkGroupRole = async(groupId,user) => {
+const checkGroupRole = async(groupId,user,userId) => {
        let checkRole;
      if (groupId)
            {
@@ -299,16 +299,17 @@ const checkGroupRole = async(groupId,user) => {
                     throw new Error("هذا الجروب الجروب غير موجود")
                 }  
               let member = await group.getUsers({through:{where:{userId:user.id, role: { [Op.in]: ['Admin', 'owner', 'Moderator'] } }}})
-              if (member.length > 0)
+           
+             if (member.length > 0)
                 {
                     checkRole = member[0]
                 } 
-                else
+            else
                 {
                     throw new Error("ليس لديك الصلأحيات")
                 }
+                 return {checkRole,group};
            }
-        return checkRole;
 }
 
 
@@ -354,7 +355,12 @@ const addLogger = async(group,userId,status) => {
     if (!["join", "leave", "newOwner", "kick"].includes(status)) {
         throw new Error("هذا القيمه غير موجوده")
     }
-    await group.addLoggerGroup({userId,status})
+    let user = await User.findByPk(userId)
+    if (!user)
+    {
+        throw new Error("المستخدم غير موجود")
+    }
+    await group.createLoggerGroup({userId,status,photo:user.photo,username:user.username})
 }
 
 

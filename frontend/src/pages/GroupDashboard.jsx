@@ -27,7 +27,12 @@ import {
   Snackbar,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  CircularProgress
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -38,12 +43,19 @@ import {
   Dashboard as DashboardIcon,
   Search as SearchIcon,
   Settings as SettingsIcon,
+  Timeline as ActivityIcon,
+  PersonAdd as PersonAddIcon,
+  ExitToApp as ExitToAppIcon,
+  Star as CrownIcon,
+  PersonRemove as PersonRemoveIcon,
   ExpandMore as ExpandMoreIcon,
   Delete as DeleteIcon,
   SwapHoriz as SwapHorizIcon,
-  ExitToApp as ExitToAppIcon
+  History as HistoryIcon,
+  Article as ArticleIcon,
+  Comment as CommentIcon
 } from '@mui/icons-material'
-import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup } from '../lib/api'
+import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup, getGroupLogger, getHistoryDelete } from '../lib/api'
 
 export default function GroupDashboard() {
   const { groupName } = useParams()
@@ -53,7 +65,11 @@ export default function GroupDashboard() {
   const [processing, setProcessing] = useState(null)
   const [hasAccess, setHasAccess] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [currentTab, setCurrentTab] = useState(0)
+  const [currentTab, setCurrentTab] = useState(() => {
+    // Get saved tab from localStorage or default to 0
+    const savedTab = localStorage.getItem(`groupDashboard_${groupName}_tab`)
+    return savedTab ? parseInt(savedTab) : 0
+  })
   const [isSearching, setIsSearching] = useState(false)
   const [allPendingUsers, setAllPendingUsers] = useState([])
   
@@ -76,11 +92,38 @@ export default function GroupDashboard() {
   const [deleteExpanded, setDeleteExpanded] = useState(false)
   const [userRole, setUserRole] = useState('')
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' })
+  
+  // Activity tab states
+  const [activities, setActivities] = useState([])
+  const [activityStatus, setActivityStatus] = useState(() => {
+    // Get saved activity status from localStorage or default to 'join'
+    const savedStatus = localStorage.getItem(`groupDashboard_${groupName}_activityStatus`)
+    return savedStatus || 'join'
+  })
+  const [loadingActivities, setLoadingActivities] = useState(false)
+
+  // History Delete tab states
+  const [historyDelete, setHistoryDelete] = useState([])
+  const [historyService, setHistoryService] = useState(() => {
+    // Get saved history service from localStorage or default to 'posts'
+    const savedService = localStorage.getItem(`groupDashboard_${groupName}_historyService`)
+    return savedService || 'posts'
+  })
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   useEffect(() => {
     checkAccess()
     loadGroupData()
   }, [groupName])
+
+  // Load activities if Activities tab is selected on mount
+  useEffect(() => {
+    if (currentTab === 3) {
+      loadActivities()
+    } else if (currentTab === 4) {
+      loadHistoryDelete()
+    }
+  }, []) // Only run on mount
 
   const loadGroupData = async () => {
     try {
@@ -387,7 +430,6 @@ export default function GroupDashboard() {
     try {
       await leaveGroup(groupName)
       setSnackbar({ open: true, message: 'تم مغادرة المجموعة بنجاح', severity: 'success' })
-      // Redirect to groups page after leaving
       setTimeout(() => {
         navigate('/groups')
       }, 2000)
@@ -399,6 +441,78 @@ export default function GroupDashboard() {
         severity: 'error' 
       })
     }
+  }
+
+  // Load activities function
+  const loadActivities = async (status = activityStatus) => {
+    try {
+      setLoadingActivities(true)
+      const { data } = await getGroupLogger(groupName, status)
+      
+      // Merge activities with user data
+      const activitiesWithUsers = (data.logger || []).map(activity => {
+        const user = (data.users || []).find(u => u.id === activity.userId)
+        console.log('Activity:', activity)
+        console.log('Found user:', user)
+        console.log('Photo path:', user?.photo)
+        console.log('Full photo URL:', user?.photo ? `${API_BASE}${user.photo}` : 'No photo')
+        return {
+          ...activity,
+          user: user || { username: 'مستخدم محذوف', photo: null }
+        }
+      })
+      
+      setActivities(activitiesWithUsers)
+    } catch (err) {
+      console.error('Error loading activities:', err)
+      console.error('Error response:', err.response?.data)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل تحميل النشاطات', 
+        severity: 'error' 
+      })
+    } finally {
+      setLoadingActivities(false)
+    }
+  }
+
+  // Handle activity status change
+  const handleActivityStatusChange = (newStatus) => {
+    setActivityStatus(newStatus)
+    localStorage.setItem(`groupDashboard_${groupName}_activityStatus`, newStatus)
+    loadActivities(newStatus)
+  }
+
+  // Load history delete function
+  const loadHistoryDelete = async (service = historyService) => {
+    try {
+      setLoadingHistory(true)
+      const { data } = await getHistoryDelete(groupName, service)
+      setHistoryDelete(data.historyDelete || [])
+    } catch (err) {
+      console.error('Error loading history delete:', err)
+      console.error('Error response:', err.response?.data)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل تحميل سجل الحذف', 
+        severity: 'error' 
+      })
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  // Handle history service change
+  const handleHistoryServiceChange = (newService) => {
+    setHistoryService(newService)
+    localStorage.setItem(`groupDashboard_${groupName}_historyService`, newService)
+    loadHistoryDelete(newService)
+  }
+
+  // Handle tab change with localStorage save
+  const handleTabChange = (tabIndex) => {
+    setCurrentTab(tabIndex)
+    localStorage.setItem(`groupDashboard_${groupName}_tab`, tabIndex.toString())
   }
 
   if (loading) {
@@ -445,7 +559,7 @@ export default function GroupDashboard() {
         <Box sx={{ p: 2 }}>
           <Stack spacing={1}>
             <Box
-              onClick={() => setCurrentTab(0)}
+              onClick={() => handleTabChange(0)}
               sx={{
                 p: 2.5,
                 borderRadius: 2,
@@ -477,7 +591,7 @@ export default function GroupDashboard() {
             </Box>
 
             <Box
-              onClick={() => setCurrentTab(2)}
+              onClick={() => handleTabChange(2)}
               sx={{
                 p: 2.5,
                 borderRadius: 2,
@@ -493,6 +607,56 @@ export default function GroupDashboard() {
                 <PeopleIcon />
                 <Typography fontWeight={currentTab === 2 ? 700 : 500}>
                   الأعضاء
+                </Typography>
+              </Stack>
+            </Box>
+
+            {/* Activities Tab */}
+            <Box
+              onClick={() => {
+                handleTabChange(3)
+                loadActivities()
+              }}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                cursor: 'pointer',
+                bgcolor: currentTab === 3 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <ActivityIcon />
+                <Typography fontWeight={currentTab === 3 ? 700 : 500}>
+                  النشاطات
+                </Typography>
+              </Stack>
+            </Box>
+
+            {/* History Delete Tab */}
+            <Box
+              onClick={() => {
+                handleTabChange(4)
+                loadHistoryDelete()
+              }}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                cursor: 'pointer',
+                bgcolor: currentTab === 4 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <HistoryIcon />
+                <Typography fontWeight={currentTab === 4 ? 700 : 500}>
+                  سجل الحذف
                 </Typography>
               </Stack>
             </Box>
@@ -516,7 +680,7 @@ export default function GroupDashboard() {
             </Box>
 
             <Box
-              onClick={() => setCurrentTab(1)}
+              onClick={() => handleTabChange(1)}
               sx={{
                 p: 2.5,
                 borderRadius: 2,
@@ -1154,6 +1318,272 @@ export default function GroupDashboard() {
                 </Typography>
               </Box>
             )}
+          </Box>
+        )}
+
+        {/* Activities Tab */}
+        {currentTab === 3 && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={4}>
+                📊 نشاطات المجموعة
+              </Typography>
+              
+              {/* Activity Status Filter */}
+              <Stack direction="row" spacing={2} mb={4}>
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>نوع النشاط</InputLabel>
+                  <Select
+                    value={activityStatus}
+                    label="نوع النشاط"
+                    onChange={(e) => handleActivityStatusChange(e.target.value)}
+                  >
+                    <MenuItem value="join">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <PersonAddIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                        <span>انضمام</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="leave">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <ExitToAppIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                        <span>مغادرة</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="kick">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <PersonRemoveIcon sx={{ fontSize: 18, color: 'error.main' }} />
+                        <span>طرد</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="newOwner">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <CrownIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                        <span>تغيير المالك</span>
+                      </Stack>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+
+              {/* Activities List */}
+              {loadingActivities ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : activities.length > 0 ? (
+                <List>
+                  {activities.map((activity, index) => (
+                    <ListItem key={index} divider={index < activities.length - 1}>
+                      <ListItemIcon>
+                        {activity.status === 'join' && <PersonAddIcon sx={{ color: 'success.main' }} />}
+                        {activity.status === 'leave' && <ExitToAppIcon sx={{ color: 'warning.main' }} />}
+                        {activity.status === 'kick' && <PersonRemoveIcon sx={{ color: 'error.main' }} />}
+                        {activity.status === 'newOwner' && <CrownIcon sx={{ color: 'primary.main' }} />}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <Avatar
+                              src={activity.user?.photo ? `${API_BASE}${activity.user.photo}` : null}
+                              sx={{ 
+                                width: 40, 
+                                height: 40,
+                                border: '2px solid #e0e0e0',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                            >
+                              {activity.user?.username?.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Typography
+                              component="span"
+                              variant="body1"
+                              sx={{
+                                color: 'primary.main',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  color: 'primary.dark',
+                                  textDecoration: 'underline'
+                                }
+                              }}
+                              onClick={() => navigate(`/profile/${activity.user?.username}`)}
+                            >
+                              {activity.user?.username}
+                            </Typography>
+                            <Typography variant="body1">
+                              {activity.status === 'join' && 'انضم للمجموعة'}
+                              {activity.status === 'leave' && 'غادر المجموعة'}
+                              {activity.status === 'kick' && 'تم طرده من المجموعة'}
+                              {activity.status === 'newOwner' && 'أصبح مالك المجموعة'}
+                            </Typography>
+                          </Stack>
+                        }
+                        secondary={
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(activity.createdAt).toLocaleString('ar-EG', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <ActivityIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" mb={1}>
+                    لا توجد نشاطات
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    لم يتم تسجيل أي نشاطات من نوع "{activityStatus}" حتى الآن
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+          </Box>
+        )}
+
+        {/* History Delete Tab */}
+        {currentTab === 4 && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={4}>
+                📜 سجل الحذف
+              </Typography>
+
+              {/* Service Filter */}
+              <Box sx={{ mb: 4 }}>
+                <FormControl sx={{ minWidth: 200 }}>
+                  <InputLabel>نوع المحتوى</InputLabel>
+                  <Select
+                    value={historyService}
+                    label="نوع المحتوى"
+                    onChange={(e) => handleHistoryServiceChange(e.target.value)}
+                    endAdornment={<ExpandMoreIcon />}
+                  >
+                    <MenuItem value="posts">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <ArticleIcon sx={{ fontSize: 20 }} />
+                        <span>المقالات</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="comments">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <CommentIcon sx={{ fontSize: 20 }} />
+                        <span>التعليقات</span>
+                      </Stack>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              {/* History Delete Content */}
+              {loadingHistory ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <CircularProgress size={60} />
+                  <Typography variant="h6" sx={{ mt: 2 }}>
+                    جاري تحميل سجل الحذف...
+                  </Typography>
+                </Box>
+              ) : historyDelete.length > 0 ? (
+                <List>
+                  {historyDelete.map((item, index) => (
+                    <ListItem key={index} divider={index < historyDelete.length - 1}>
+                      <ListItemIcon>
+                        {historyService === 'posts' ? (
+                          <ArticleIcon sx={{ color: 'error.main' }} />
+                        ) : (
+                          <CommentIcon sx={{ color: 'error.main' }} />
+                        )}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
+                            <Typography variant="body1" fontWeight={600}>
+                              {historyService === 'posts' ? 'مقال محذوف' : 'تعليق محذوف'}
+                            </Typography>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              sx={{
+                                color: 'primary.main',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  color: 'primary.dark',
+                                  textDecoration: 'underline'
+                                }
+                              }}
+                              onClick={() => navigate(`/profile/${item.usernameOwnerBlogDelete}`)}
+                            >
+                              لـ: {item.usernameOwnerBlogDelete}
+                            </Typography>
+                          </Stack>
+                        }
+                        secondary={
+                          <Stack spacing={1} sx={{ mt: 1 }}>
+                            {item.contentDelete && (
+                              <Typography variant="body2" color="text.secondary">
+                                المحتوى: {item.contentDelete.length > 100 ? item.contentDelete.substring(0, 100) + '...' : item.contentDelete}
+                              </Typography>
+                            )}
+                            <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                sx={{
+                                  color: 'error.main',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  '&:hover': {
+                                    color: 'error.dark',
+                                    textDecoration: 'underline'
+                                  }
+                                }}
+                                onClick={() => navigate(`/profile/${item.administratorDelete}`)}
+                              >
+                                حذف بواسطة: {item.administratorDelete}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                (صلاحية: {item.roleDeleteBlog})
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                مالك المجموعة وقتها: {item.ownerInThisTime}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(item.createdAt).toLocaleString('ar-EG', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </Typography>
+                            </Stack>
+                          </Stack>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <HistoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" mb={1}>
+                    لا يوجد سجل حذف
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    لم يتم حذف أي {historyService === 'posts' ? 'مقالات' : 'تعليقات'} حتى الآن
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
           </Box>
         )}
       </Box>
