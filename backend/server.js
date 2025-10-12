@@ -18,7 +18,7 @@ const server = require('http').createServer(app)
 
 const io = socketIo(server, {
   cors: {
-    origin: [ "http://localhost:3000","https://symphony-frames-triumph-amongst.trycloudflare.com"], // رابط الفرونت اند
+    origin:  "http://localhost:3000", 
     methods: ["GET", "POST"],
     credentials: true
   }

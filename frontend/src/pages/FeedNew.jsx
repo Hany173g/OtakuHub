@@ -136,7 +136,16 @@ export default function Feed() {
         </Stack>
       )}
 
-      <CreateBlogDialog open={open} onClose={() => setOpen(false)} onCreated={load} />
+      <CreateBlogDialog 
+        open={open} 
+        onClose={() => setOpen(false)} 
+        onCreated={(newBlog) => {
+          // Add new blog to the beginning of the list without refresh
+          if (newBlog) {
+            setBlogs(prev => [newBlog, ...prev])
+          }
+        }} 
+      />
     </Box>
   )
 }

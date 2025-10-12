@@ -22,11 +22,26 @@ const sequelize = require('../config/database');
 const {pendingRequestsGroup} = require('./pendingRequestsGroupModel')
 const {loggerGroup} = require('./loggerGroupModel')
 
+const {report} = require('./reportModel')
+
 
 const {historyDeleteGroup} = require('./historyDeleteGroupModel');
 
 
 const {requestFriend} = require('./requestFriendModel')
+
+
+const{groupSettings} = require('./settingsGroupModel')
+
+const {penningBlogs} = require('./penningBlogsModel');
+const { blocks } = require('./blocksModel');
+
+
+const{Notification} = require('./notificationModel')
+
+
+
+
 
 // Users ReelationShips
 
@@ -125,8 +140,37 @@ const {requestFriend} = require('./requestFriendModel')
         Groups.belongsToMany(User, { through: 'pendingRequestsGroup', foreignKey: 'groupId' , as: "PendingUsers",   otherKey: 'userId', onDelete: 'CASCADE' });
 
 
+
+             User.hasMany(blocks, { foreignKey: 'sentBlock', as: 'sentBlock' ,onDelete:'CASCADE'});
+        blocks.belongsTo(User, { foreignKey: 'sentBlock', as: 'sender' });
+
+        User.hasMany(blocks, { foreignKey: 'recivceBlock', as: 'recievedBlock' ,onDelete:'CASCADE'});
+        blocks.belongsTo(User, { foreignKey: 'recivceBlock', as: 'receiver' });
+
         
+        // relation user to group => notfcs
+
+        User.belongsToMany(Groups,{through:'Notification',foreignKey:"userId",otherKey:"serviceId",onDelete:"CASCADE"});
+        Groups.belongsToMany(User,{through:'Notification',foreignKey:"serviceId",otherKey:"userId",onDelete:"CASCADE"})
+
+
+        // relation user to blog => notfcs
+
+        User.belongsToMany(Blogs,{through:'Notification',foreignKey:"userId",otherKey:"serviceId",onDelete:"CASCADE"})
+        Blogs.belongsToMany(User,{through:"Notification",foreignKey:"serviceId",otherKey:"userId",onDelete:"CASCADE"})
+        
+
+        // relation user to comment => notfcs
+
+        User.belongsToMany(commentsBlogs,{through:"Notification",foreignKey:"userId",otherKey:"serviceId",onDelete:"CASCADE"})
+        commentsBlogs.belongsToMany(User,{through:"Notification",foreignKey:"serviceId",otherKey:"userId",onDelete:"CASCADE"})
     
+        //relation user to reports
+
+        User.hasMany(report,{foreignKey:"userId"})
+        report.belongsTo(User,{foreignKey:"userId"})
+
+
 //Blogs ReelationShips
 
 
@@ -160,6 +204,9 @@ const {requestFriend} = require('./requestFriendModel')
             Blogs.hasOne(BlogStats,{foreignKey:'blogId',onDelete:'CASCADE'})
             BlogStats.belongsTo(Blogs,{foreignKey:'blogId'})
 
+            // relationship blogs to reports
+            Blogs.hasMany(report,{foreignKey:'serviceId',onDelete:'CASCADE'})
+            report.belongsTo(Blogs,{foreignKey:'serviceId'});
 
 // comment RelationShips
 
@@ -174,13 +221,17 @@ const {requestFriend} = require('./requestFriendModel')
         // relationship comments to commentStats
         
         commentsBlogs.hasOne(commentStats,{foreignKey:'commentId',onDelete:'CASCADE'});
-        commentStats.belongsTo(commentStats,{foreignKey:'commentId'})
+        commentStats.belongsTo(commentsBlogs,{foreignKey:'commentId'})
         
 
         // relation comments to nestedComments
 
         commentsBlogs.hasMany(nestedComments,{foreignKey:'commentId',onDelete:'CASCADE'});
         nestedComments.belongsTo(commentsBlogs,{foreignKey:'commentId'});
+
+        // relation comments to reports
+        commentsBlogs.hasMany(report,{foreignKey:'serviceId',onDelete:'CASCADE'})
+        report.belongsTo(commentsBlogs,{foreignKey:'serviceId'});
 
 // Group
 
@@ -203,9 +254,30 @@ const {requestFriend} = require('./requestFriendModel')
         historyDeleteGroup.belongsTo(Groups,{foreignKey:'groupId'})
 
 
+        //relation group to reports
+
+        Groups.hasMany(report,{foreignKey:'groupId',onDelete:'CASCADE'})
+        report.belongsTo(Groups,{foreignKey:"groupId"})
+
+        
+
+       // relation group to settings
+       
+         Groups.hasOne(groupSettings,{foreignKey:'groupId',onDelete:'CASCADE'})
+        groupSettings.belongsTo(Groups,{foreignKey:'groupId'})
+
+
+
+       //relation group to penningBlogs
+
+       Groups.hasMany(penningBlogs,{foreignKey:'groupId',onDelete:'CASCADE'})
+       penningBlogs.belongsTo(Groups,{foreignKey:'groupId'}) 
 
 
 
 
 
-module.exports = {User,Blogs,dislikesBlogs,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+
+
+
+module.exports = {User,Blogs,dislikesBlogs,Notification,penningBlogs,groupSettings,report,blocks,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

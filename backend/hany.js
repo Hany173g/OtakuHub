@@ -1,0 +1,1 @@
+process.stdout.write("🔥 Blog created! 🔥\n");

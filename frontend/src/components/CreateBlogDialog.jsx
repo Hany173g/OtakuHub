@@ -4,7 +4,7 @@ import { createBlog, addGroupPost, storage } from '../lib/api'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CloseIcon from '@mui/icons-material/Close'
 
-export default function CreateBlogDialog({ open, onClose, onCreated, groupName }) {
+export default function CreateBlogDialog({ open, onClose, onCreated, groupName, groupSettings = null }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [file, setFile] = useState(null)
@@ -18,6 +18,7 @@ export default function CreateBlogDialog({ open, onClose, onCreated, groupName }
     if (!storage.token) { setSnack({ open: true, message: 'يجب تسجيل الدخول لنشر تدوينة', severity: 'error' }); return }
     setLoading(true)
     try {
+      let response;
       if (groupName) {
         // Post to group
         const formData = new FormData()
@@ -25,15 +26,33 @@ export default function CreateBlogDialog({ open, onClose, onCreated, groupName }
         formData.append('title', title)
         formData.append('content', content)
         if (file) formData.append('photo', file)
-        await addGroupPost(formData)
+        response = await addGroupPost(formData)
       } else {
         // Post to home feed
-        await createBlog({ title, content, photo: file })
+        response = await createBlog({ title, content, photo: file })
       }
-      onCreated?.()
-      reset()
-      onClose?.()
-      setSnack({ open: true, message: 'تم نشر التدوينة بنجاح', severity: 'success' })
+      
+      // Show message based on backend response
+      let successMessage = 'تم نشر التدوينة بنجاح'
+      
+      // إذا النشر متوقف في المجموعة
+      if (groupName && response?.data?.groupSettingPublish === false) {
+        successMessage = 'تم إرسال المنشور للمراجعة'
+      }
+      
+      // إذا الـ reports ممنوعة في المجموعة
+      if (groupName && response?.data?.groupSettingsReport === false) {
+        successMessage += ' • الإبلاغات معطلة في هذه المجموعة'
+      }
+      
+      setSnack({ open: true, message: successMessage, severity: 'success' })
+      
+      // أخر الـ refresh عشان المستخدم يشوف الرسالة الأول
+      setTimeout(() => {
+        onCreated?.()
+        reset()
+        onClose?.()
+      }, 2000) // ينتظر ثانيتين
     } catch (err) {
       const msg = err?.response?.data?.message || 'تعذّر إنشاء التدوينة'
       setSnack({ open: true, message: msg, severity: 'error' })

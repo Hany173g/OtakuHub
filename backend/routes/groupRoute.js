@@ -74,7 +74,16 @@ router.post('/group/getHistoryDelete/:service',groupContoller.getHistoryDelete)
 
 
 
+router.post('/group/getReports',groupContoller.getReportsGroup);
 
 
+
+router.post('/group/updateGroupSettings',groupContoller.updateGroupSettings)
+
+router.post('/group/getBlogsPenning',groupContoller.getBlogsPenning)
+
+
+router.post('/group/acceptBlogPenned',groupContoller.acceptBlogPenned)
+router.post('/group/cancelBlogPenned',groupContoller.cancelBlogPenned)
 
 module.exports = router

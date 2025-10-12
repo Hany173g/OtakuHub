@@ -25,20 +25,24 @@ import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ReportIcon from '@mui/icons-material/Report'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
-import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE } from '../lib/api'
+import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE, reportService } from '../lib/api'
 import CommentsDialog from './CommentsDialog'
 
-export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog, userRole = 'guest' }) {
+export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog, userRole = 'guest', groupSettings = null }) {
   const [localBlog, setLocalBlog] = useState(blog)
   const [busy, setBusy] = useState(false)
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' })
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [reportContent, setReportContent] = useState('')
+  const [reportLoading, setReportLoading] = useState(false)
   const hasPhoto = !!localBlog.photo
   const likedByUser = localBlog.isLike
   const dislikedByUser = localBlog.isDislike
@@ -48,9 +52,8 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
   const commentCount = Math.max(0, stats.commentsNumber ?? 0)
   const isOwner = localBlog.isOwner
   const canDelete = isOwner || ['owner', 'admin', 'moderator'].includes(userRole?.toLowerCase())
-  
-  // Debug log
-  console.log('BlogCard - userRole:', userRole, 'canDelete:', canDelete, 'isOwner:', isOwner)
+  const canReport = !isOwner && isAuthed && (groupSettings?.allowReports !== false)
+  const showMenu = (canDelete || canReport) && isAuthed
 
   const ownerName = blog.userData?.username || 'مستخدم'
   const ownerInitials = (blog.userData?.username || 'U').slice(0, 2).toUpperCase()
@@ -261,6 +264,35 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
     setDeleteDialogOpen(true)
   }
 
+  const handleReportClick = () => {
+    setMenuAnchor(null)
+    setReportDialogOpen(true)
+  }
+
+  const handleReportSubmit = async () => {
+    if (!reportContent.trim()) {
+      setSnack({ open: true, message: 'يرجى كتابة سبب البلاغ', severity: 'error' })
+      return
+    }
+
+    try {
+      setReportLoading(true)
+      await reportService('blog', localBlog.id, reportContent.trim())
+      setSnack({ open: true, message: 'تم إرسال البلاغ بنجاح', severity: 'success' })
+      setReportDialogOpen(false)
+      setReportContent('')
+    } catch (err) {
+      console.error('Error reporting blog:', err)
+      setSnack({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل في إرسال البلاغ', 
+        severity: 'error' 
+      })
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   const handleAddComment = async (blogId, content) => {
     try {
       const result = await addComment(blogId, content)
@@ -321,7 +353,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
           avatar={
             <Link to={`/profile/${ownerName}`} style={{ textDecoration: 'none' }}>
               <Avatar 
-                src={blog.userData?.photo ? `http://localhost:5000/${blog.userData.photo}` : undefined}
+                src={blog.userData?.photo ? `${API_BASE}/${blog.userData.photo}` : undefined}
                 sx={{ 
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   width: 56, 
@@ -375,7 +407,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
             </Typography>
           }
           action={
-            canDelete && isAuthed && (
+            showMenu && (
               <>
                 <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
                   <MoreVertIcon />
@@ -385,10 +417,18 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
                   open={Boolean(menuAnchor)}
                   onClose={() => setMenuAnchor(null)}
                 >
-                  <MenuItem onClick={handleDeleteClick}>
-                    <DeleteIcon sx={{ mr: 1 }} />
-                    حذف التدوينة
-                  </MenuItem>
+                  {canDelete && (
+                    <MenuItem onClick={handleDeleteClick}>
+                      <DeleteIcon sx={{ mr: 1 }} />
+                      حذف التدوينة
+                    </MenuItem>
+                  )}
+                  {canReport && (
+                    <MenuItem onClick={handleReportClick}>
+                      <ReportIcon sx={{ mr: 1 }} />
+                      إبلاغ عن التدوينة
+                    </MenuItem>
+                  )}
                 </Menu>
               </>
             )
@@ -570,6 +610,53 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
             sx={{ minWidth: 100 }}
           >
             {busy ? 'جاري الحذف...' : 'حذف'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Report Dialog */}
+      <Dialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 600 }}>
+          إبلاغ عن التدوينة
+        </DialogTitle>
+        <DialogContent sx={{ py: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            يرجى كتابة سبب الإبلاغ عن هذه التدوينة
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            placeholder="اكتب سبب البلاغ..."
+            value={reportContent}
+            onChange={(e) => setReportContent(e.target.value)}
+            variant="outlined"
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 3 }}>
+          <Button 
+            onClick={() => {
+              setReportDialogOpen(false)
+              setReportContent('')
+            }}
+            variant="outlined"
+            sx={{ minWidth: 100 }}
+          >
+            إلغاء
+          </Button>
+          <Button 
+            onClick={handleReportSubmit}
+            variant="contained"
+            color="error"
+            disabled={reportLoading || !reportContent.trim()}
+            sx={{ minWidth: 100 }}
+          >
+            {reportLoading ? 'جاري الإرسال...' : 'إرسال البلاغ'}
           </Button>
         </DialogActions>
       </Dialog>

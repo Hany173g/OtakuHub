@@ -30,8 +30,13 @@ export default function Chat() {
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
-    loadChat()
-    joinChat()
+    if (username && username.trim() !== '') {
+      loadChat()
+      joinChat()
+    } else {
+      console.error('❌ No username provided in Chat page')
+      setLoading(false)
+    }
     
     // Listen for incoming messages
     if (socket) {
@@ -58,6 +63,12 @@ export default function Chat() {
   }, [messages])
 
   const loadChat = async () => {
+    if (!username || username.trim() === '') {
+      console.error('❌ Cannot load chat without username')
+      setLoading(false)
+      return
+    }
+    
     try {
       setLoading(true)
       const response = await getChat(username)
@@ -75,6 +86,11 @@ export default function Chat() {
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return
+    
+    if (!username || username.trim() === '') {
+      console.error('❌ Cannot send message without username')
+      return
+    }
 
     // Add message to UI immediately
     const messageData = {

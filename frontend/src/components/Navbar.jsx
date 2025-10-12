@@ -18,7 +18,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import PeopleIcon from '@mui/icons-material/People'
 import { Link, useNavigate } from 'react-router-dom'
-import { storage, getFriendsRequest, acceptFriendRequest, rejectFriendRequest } from '../lib/api'
+import { storage, getFriendsRequest, acceptFriendRequest, rejectFriendRequest, getNotifications } from '../lib/api'
 import { useSocket } from '../contexts/SocketContext'
 import { useChat } from '../contexts/ChatContext'
 
@@ -31,16 +31,18 @@ export default function Navbar() {
   // Notification states
   const [notificationAnchor, setNotificationAnchor] = useState(null)
   const [friendRequests, setFriendRequests] = useState([])
+  const [backendNotifications, setBackendNotifications] = useState([])
   
   // Friends states
   const [friendsAnchor, setFriendsAnchor] = useState(null)
   const [friends, setFriends] = useState([])
   const [totalNotifications, setTotalNotifications] = useState(0)
 
-  // Load friend requests from API and join notification room
+  // Load friend requests and notifications from API
   useEffect(() => {
     if (isAuthed) {
       loadFriendRequests()
+      loadBackendNotifications()
       
       // Join notification room when navbar loads
       if (socket && isConnected) {
@@ -51,8 +53,8 @@ export default function Navbar() {
 
   // Update total notifications when socket notifications change
   useEffect(() => {
-    setTotalNotifications(friendRequests.length + notifications.length)
-  }, [friendRequests.length, notifications.length])
+    setTotalNotifications(friendRequests.length + notifications.length + backendNotifications.length)
+  }, [friendRequests.length, notifications.length, backendNotifications.length])
 
   const loadFriendRequests = async () => {
     try {
@@ -60,6 +62,15 @@ export default function Navbar() {
       setFriendRequests(data.allUsersReceived || [])
     } catch (err) {
       console.error('Error loading friend requests:', err)
+    }
+  }
+
+  const loadBackendNotifications = async () => {
+    try {
+      const { data } = await getNotifications()
+      setBackendNotifications(data.userNottication || [])
+    } catch (err) {
+      console.error('Error loading notifications:', err)
     }
   }
 
@@ -75,12 +86,10 @@ export default function Navbar() {
 
   const handleAcceptFriendRequest = async (username) => {
     try {
-      console.log('🔄 قبول طلب صداقة من:', username)
       await acceptFriendRequest(username)
       
       // إزالة الطلب من القائمة
       setFriendRequests(prev => prev.filter(req => req.username !== username))
-      console.log('✅ تم قبول طلب الصداقة')
     } catch (err) {
       console.error('❌ خطأ في قبول الطلب:', err)
     }
@@ -88,13 +97,11 @@ export default function Navbar() {
 
   const handleRejectFriendRequest = async (username) => {
     try {
-      console.log('🔄 رفض طلب صداقة من:', username)
       // إرسال service = "rejectRequest" كما طلبت
       await rejectFriendRequest(username, "rejectRequest")
       
       // إزالة الطلب من القائمة
       setFriendRequests(prev => prev.filter(req => req.username !== username))
-      console.log('✅ تم رفض طلب الصداقة')
     } catch (err) {
       console.error('❌ خطأ في رفض الطلب:', err)
     }
@@ -102,7 +109,6 @@ export default function Navbar() {
 
   const loadFriends = () => {
     if (socket && isConnected) {
-      console.log('👥 Loading friends list...')
       socket.emit('getFriends', storage.token)
     }
   }
@@ -111,7 +117,6 @@ export default function Navbar() {
   useEffect(() => {
     if (socket) {
       socket.on('sendFriends', (friendsData) => {
-        console.log('👥 Received friends:', friendsData)
         setFriends(friendsData || [])
       })
 
@@ -485,8 +490,83 @@ export default function Navbar() {
           </>
         )}
 
+        {/* Backend Notifications Section */}
+        {backendNotifications.length > 0 && (
+          <>
+            <Divider />
+            <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <NotificationsIcon color="info" />
+              <Typography variant="subtitle2" fontWeight={600}>
+                إشعارات أخرى ({backendNotifications.length})
+              </Typography>
+            </Box>
+            <List sx={{ py: 0 }}>
+              {backendNotifications.map((notif) => {
+                const getNotificationIcon = (type) => {
+                  if (type.includes('like')) return '👍'
+                  if (type.includes('dislike')) return '👎'
+                  if (type.includes('comment')) return '💬'
+                  if (type.includes('share')) return '🔄'
+                  return '🔔'
+                }
+                
+                return (
+                  <ListItem 
+                    key={notif.id} 
+                    sx={{ 
+                      py: 1.5, 
+                      cursor: 'pointer',
+                      bgcolor: notif.isRead ? 'transparent' : 'action.hover',
+                      '&:hover': { bgcolor: 'action.selected' }
+                    }}
+                    onClick={() => {
+                      // Navigate to the blog/post
+                      if (notif.serviceType?.includes('Blog') && notif.serviceId) {
+                        navigate('/')
+                        handleNotificationClose()
+                      }
+                    }}
+                  >
+                    <Box sx={{ mr: 2, fontSize: '1.5rem' }}>
+                      {getNotificationIcon(notif.serviceType)}
+                    </Box>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontWeight={notif.isRead ? 400 : 600}>
+                          {notif.content}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(notif.createdAt).toLocaleDateString('ar-EG', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Typography>
+                      }
+                    />
+                    {!notif.isRead && (
+                      <Box 
+                        sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: 'primary.main',
+                          ml: 1
+                        }} 
+                      />
+                    )}
+                  </ListItem>
+                )
+              })}
+            </List>
+          </>
+        )}
+
         {/* No Notifications */}
-        {friendRequests.length === 0 && notifications.length === 0 && (
+        {friendRequests.length === 0 && notifications.length === 0 && backendNotifications.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <NotificationsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
             <Typography variant="body2" color="text.secondary">

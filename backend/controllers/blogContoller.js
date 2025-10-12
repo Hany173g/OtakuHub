@@ -1,17 +1,15 @@
-const{User,Blogs,GroupMember,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile} = require('../models/Relationships')
 
 
 
 const {isUser} =require('../utils/isUser')
-const {checkData,checkPhoto,checkBlog,checkComment,checkGroupRole,checkAction} =require('../utils/checkData')
+const {checkData,checkReportData,checkBlog,checkComment,checkGroupRole,checkAction} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
 
 const {createBlog} = require('../service/blogService')
 
 
 const {getBlogs} = require('../service/getBlogs')
-const { where } = require('sequelize')
-const { promises } = require('nodemailer/lib/xoauth2')
 
 
 
@@ -19,10 +17,9 @@ const { promises } = require('nodemailer/lib/xoauth2')
 
 exports.createBlog = async(req,res) => {
     try {
-        // isUser check if user auth or not
-       
     let user =   await  isUser(req.user)
-   let newBlog =  await createBlog(req.body,req.file,user)
+   let {newBlog} =  await createBlog(req.body,req.file,user)
+
     res.status(200).json({blogData:newBlog})
     }catch(err)
     {
@@ -40,6 +37,7 @@ exports.createBlog = async(req,res) => {
 
 exports.removeLike = async(req,res) => {
     try{
+        console.log("Test remove")
         let user =   await  isUser(req.user)
         const {blogId} = req.params;
         let blog = await checkBlog(blogId);
@@ -51,9 +49,15 @@ exports.removeLike = async(req,res) => {
         {
             throw new Error("انت لم تقم بلأعجاب ")
         }
+        
         let blogLikes = await blog.getBlogStat();
          await isLike.destroy();
         await blogLikes.decrement('likesNumber', { by: 1 });
+        let profile = await Profile.findOne({where:{userId:user.id}})
+        if (profile)
+        {
+            await profile.decrement("likes",{by:1})
+        }
         res.status(201).json()
     }catch(err)
     {
@@ -129,8 +133,6 @@ exports.addComment = async(req,res) => {
 
 
 
-// user,id,service,item,actionUser
-
 
 
 exports.doAction = async(req,res) => {
@@ -151,6 +153,7 @@ exports.doAction = async(req,res) => {
        res.status(201).json()
     }catch(err)
     {
+        console.log(err.message)
         res.status(400).json({message:err.message})
     }
 }
@@ -161,7 +164,9 @@ exports.doAction = async(req,res) => {
 
 exports.getBlogs = async(req,res) => {
     try {
+    console.time("s")
     let allBlogs = await getBlogs(req,res,'home',null)
+    console.timeEnd("s")
     res.status(200).json({allBlogs})
     }catch(err)
     {
@@ -202,7 +207,7 @@ exports.deleteBlog = async(req,res) => {
             throw new Error("هذا المقاله غير موجده")
            }
        
-           let {checkRole,group} = await checkGroupRole(blog.groupId,user,blog.userId)
+           let {checkRole,group} = await checkGroupRole(blog,user,blog.userId)
            if (checkRole && user.id != blog.userId)
            {
             await createHistoryGroup(blog,user,group,"blog")
@@ -212,8 +217,8 @@ exports.deleteBlog = async(req,res) => {
              throw new Error("يجب ان تكون انت صاحب المقال لتسطيع حذفه")
            }
         
-
-           await blog.destroy();
+          
+          let blogDelete =  await blog.destroy();
           res.status(200).json({message:"تم حذف المقاله"}) 
     }catch(err)
     {
@@ -254,6 +259,34 @@ exports.deleteComment = async(req,res) => {
         await blogStat.decrement('commentsNumber',{by:1})
         await comment.destroy();
         res.status(200).json({message:"تم حذف التعليق"})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+exports.reportService = async(req,res) => {
+    try{  
+        let user =   await  isUser(req.user)
+        const {service,serviceId,content} = req.body;
+        let {serviceData,group} = await checkReportData(service,serviceId,user,content)
+        let groupSettings = await group.getGroupSetting();
+        if (group)
+        {
+              if (!groupSettings.allowReports)
+                {
+                    throw new Error("قام المشرف بمن البلأغات")
+                }
+        }
+      
+        let groupId = group ? group.id : null;      
+        await serviceData.createReport({userId:user.id,serviceId:serviceData.id,content,service,groupId})
+        
+        res.status(201).json({groupSettingsReport:groupSettings.allowReports});
     }catch(err)
     {
         res.status(400).json({message:err.message})

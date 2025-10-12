@@ -20,7 +20,9 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Snackbar,
+  Alert
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -44,6 +46,7 @@ export default function GroupDetails() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [groupData, setGroupData] = useState(null)
+  const [groupSettings, setGroupSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -69,8 +72,10 @@ export default function GroupDetails() {
       console.log('Group data received:', data)
       console.log('Role:', data.groupData?.role)
       console.log('Description:', data.groupData?.description)
+      console.log('Group Settings:', data.groupSettings)
       console.log('isMember check:', ['owner', 'Admin', 'Moderator', 'member', 'Member'].includes(data.groupData?.role))
       setGroupData(data.groupData)
+      setGroupSettings(data.groupSettings)
     } catch (err) {
       console.error('Error loading group:', err)
       console.error('Error details:', err.response?.data)
@@ -454,8 +459,15 @@ export default function GroupDetails() {
                       isAuthed={isAuthed}
                       onUpdateBlog={null}
                       onAddComment={null}
-                      onDeleteBlog={() => loadGroupData()}
+                      onDeleteBlog={(deletedBlogId) => {
+                        // Remove deleted blog from state without refresh
+                        setGroupData(prev => ({
+                          ...prev,
+                          Blogs: prev.Blogs.filter(blog => blog.id !== deletedBlogId)
+                        }))
+                      }}
                       userRole={groupData.role}
+                      groupSettings={groupSettings}
                     />
                   ))}
                 </Stack>
@@ -491,6 +503,7 @@ export default function GroupDetails() {
           await loadGroupData()
         }}
         groupName={groupName}
+        groupSettings={groupSettings}
       />
 
       {/* Leave Group Dialog */}

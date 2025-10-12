@@ -1,7 +1,8 @@
 const {checkData,checkPhoto,checkBlog,checkComment,checkAction} =require('../utils/checkData')
 
 
-const{blogs} = require('../models/Relationships')
+const{Blogs,groupSettings,penningBlogs, Groups, User} = require('../models/Relationships');
+const { where } = require('sequelize');
 
 
 
@@ -33,7 +34,26 @@ const createBlog = async(Data,photo,user,id) => {
                 title:data.title,groupId
             })
     }
-    return newBlog;
+    let groupSetting = null;
+
+    if (groupId)
+    {
+         let group = await Groups.findByPk(groupId)
+         if (!group)
+         {
+            throw new Error("هذا الجروب غير موجود")
+         }
+          groupSetting = await group.getGroupSetting();
+         let userRole = await group.getUsers({where:{id:user.id},through:{where:{userId:user.id}}});
+         console.log(userRole[0].GroupMember.role)
+         if (!groupSetting.publish && !["owner","Admin","Moderator"].includes(userRole[0].GroupMember.role))
+         {
+            console.log("1")
+            await group.createPenningBlog({blogId:newBlog.id});
+         }
+    }
+   
+    return {newBlog,groupSetting};
 }
 
 

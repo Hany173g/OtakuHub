@@ -19,20 +19,22 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Switch,
+  FormControlLabel,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Alert,
   Snackbar,
+  CircularProgress,
   Accordion,
   AccordionSummary,
   AccordionDetails,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
-  CircularProgress
+  ListItemIcon
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -42,20 +44,21 @@ import {
   Gavel as GavelIcon,
   Dashboard as DashboardIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon,
   Timeline as ActivityIcon,
   PersonAdd as PersonAddIcon,
   ExitToApp as ExitToAppIcon,
   Star as CrownIcon,
+  Report as ReportIcon,
   PersonRemove as PersonRemoveIcon,
   ExpandMore as ExpandMoreIcon,
   Delete as DeleteIcon,
   SwapHoriz as SwapHorizIcon,
   History as HistoryIcon,
   Article as ArticleIcon,
-  Comment as CommentIcon
+  Comment as CommentIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material'
-import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup, getGroupLogger, getHistoryDelete } from '../lib/api'
+import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup, getGroupLogger, getHistoryDelete, updateGroupSettings, getGroupReports, getPendingBlogs, acceptPendingBlog, cancelPendingBlog } from '../lib/api'
 
 export default function GroupDashboard() {
   const { groupName } = useParams()
@@ -111,6 +114,21 @@ export default function GroupDashboard() {
   })
   const [loadingHistory, setLoadingHistory] = useState(false)
 
+  // Settings tab states
+  const [settingsLoading, setSettingsLoading] = useState(false)
+
+  // Reports tab states
+  const [reports, setReports] = useState([])
+  const [loadingReports, setLoadingReports] = useState(false)
+  const [reportType, setReportType] = useState('blog') // 'blog' or 'comment'
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [showContentDialog, setShowContentDialog] = useState(false)
+
+  // Pending Blogs tab states
+  const [pendingBlogs, setPendingBlogs] = useState([])
+  const [loadingPending, setLoadingPending] = useState(false)
+  const [processingBlog, setProcessingBlog] = useState(null)
+
   useEffect(() => {
     checkAccess()
     loadGroupData()
@@ -121,9 +139,13 @@ export default function GroupDashboard() {
     if (currentTab === 3) {
       loadActivities()
     } else if (currentTab === 4) {
-      loadHistoryDelete()
+      loadHistoryDelete(historyService)
+    } else if (currentTab === 6) {
+      loadReports()
+    } else if (currentTab === 7) {
+      loadPendingBlogs()
     }
-  }, []) // Only run on mount
+  }, [currentTab, historyService])
 
   const loadGroupData = async () => {
     try {
@@ -131,12 +153,17 @@ export default function GroupDashboard() {
       console.log('GroupDashboard - Full response:', data)
       console.log('GroupDashboard - Role from API:', data.role)
       console.log('GroupDashboard - GroupData role:', data.groupData?.role)
+      console.log('GroupDashboard - GroupSettings:', data.groupSettings)
       
       // Try to get role from different possible locations
       const role = data.role || data.groupData?.role || ''
       console.log('GroupDashboard - Final role:', role)
       
-      setGroupData(data.groupData || data)
+      // Set both groupData and groupSettings
+      setGroupData({
+        ...data.groupData,
+        groupSettings: data.groupSettings
+      })
       setUserRole(role)
       setSettingsForm({ 
         description: data.description || data.groupData?.description || '', 
@@ -509,6 +536,154 @@ export default function GroupDashboard() {
     loadHistoryDelete(newService)
   }
 
+  // Handle settings update
+  const handleSettingsUpdate = async (settingName, value) => {
+    try {
+      setSettingsLoading(true)
+      
+      const currentSettings = {
+        publish: groupData?.groupSettings?.publish ?? true,
+        allowReports: groupData?.groupSettings?.allowReports ?? true
+      }
+      
+      const newSettings = {
+        ...currentSettings,
+        [settingName]: value
+      }
+      
+      await updateGroupSettings(groupName, newSettings.publish, newSettings.allowReports)
+      
+      // Update local state
+      setGroupData(prev => ({
+        ...prev,
+        groupSettings: {
+          ...prev.groupSettings,
+          [settingName]: value
+        }
+      }))
+      
+      setSnackbar({ 
+        open: true, 
+        message: 'تم تحديث الإعدادات بنجاح', 
+        severity: 'success' 
+      })
+    } catch (err) {
+      console.error('Error updating settings:', err)
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل في تحديث الإعدادات', 
+        severity: 'error' 
+      })
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  // Load reports function
+  const loadReports = async (type = reportType) => {
+    setLoadingReports(true)
+    try {
+      const { data } = await getGroupReports(groupName, type)
+      setReports(data.groupReports || [])
+    } catch (err) {
+      console.error('Error loading reports:', err)
+      setSnackbar({ 
+        open: true, 
+        message: 'فشل في تحميل البلاغات', 
+        severity: 'error' 
+      })
+    } finally {
+      setLoadingReports(false)
+    }
+  }
+
+  // Handle report type change
+  const handleReportTypeChange = (type) => {
+    setReportType(type)
+    loadReports(type)
+  }
+
+  // Handle delete blog
+  const handleDeleteBlog = async (blogId) => {
+    try {
+      await api.post('/api/deleteBlog', { blogId })
+      setSnackbar({ 
+        open: true, 
+        message: 'تم حذف المنشور بنجاح', 
+        severity: 'success' 
+      })
+      loadReports() // Reload reports
+    } catch (err) {
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل في حذف المنشور', 
+        severity: 'error' 
+      })
+    }
+  }
+
+  // Load pending blogs
+  const loadPendingBlogs = async () => {
+    setLoadingPending(true)
+    try {
+      const { data } = await getPendingBlogs(groupName)
+      setPendingBlogs(data.blogs || [])
+    } catch (err) {
+      console.error('Error loading pending blogs:', err)
+      setSnackbar({ 
+        open: true, 
+        message: 'فشل في تحميل المنشورات المعلقة', 
+        severity: 'error' 
+      })
+    } finally {
+      setLoadingPending(false)
+    }
+  }
+
+  // Accept pending blog
+  const handleAcceptBlog = async (blogId) => {
+    setProcessingBlog(blogId)
+    try {
+      await acceptPendingBlog(groupName, blogId)
+      setPendingBlogs(prev => prev.filter(blog => blog.id !== blogId))
+      setSnackbar({ 
+        open: true, 
+        message: 'تم قبول المنشور بنجاح', 
+        severity: 'success' 
+      })
+    } catch (err) {
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل في قبول المنشور', 
+        severity: 'error' 
+      })
+    } finally {
+      setProcessingBlog(null)
+    }
+  }
+
+  // Cancel pending blog
+  const handleCancelBlog = async (blogId) => {
+    setProcessingBlog(blogId)
+    try {
+      await cancelPendingBlog(groupName, blogId)
+      setPendingBlogs(prev => prev.filter(blog => blog.id !== blogId))
+      setSnackbar({ 
+        open: true, 
+        message: 'تم رفض المنشور بنجاح', 
+        severity: 'success' 
+      })
+    } catch (err) {
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'فشل في رفض المنشور', 
+        severity: 'error' 
+      })
+    } finally {
+      setProcessingBlog(null)
+    }
+  }
+
   // Handle tab change with localStorage save
   const handleTabChange = (tabIndex) => {
     setCurrentTab(tabIndex)
@@ -660,6 +835,84 @@ export default function GroupDashboard() {
                 </Typography>
               </Stack>
             </Box>
+
+            {/* Settings Tab - Only for admin/owner */}
+            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+              <Box
+                onClick={() => handleTabChange(5)}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  bgcolor: currentTab === 5 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <SettingsIcon />
+                  <Typography fontWeight={currentTab === 5 ? 700 : 500}>
+                    إعدادات المجموعة
+                  </Typography>
+                </Stack>
+              </Box>
+            )}
+
+            {/* Reports Tab - Only for admin/owner */}
+            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+              <Box
+                onClick={() => {
+                  handleTabChange(6)
+                  loadReports()
+                }}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  bgcolor: currentTab === 6 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <ReportIcon />
+                  <Typography fontWeight={currentTab === 6 ? 700 : 500}>
+                    البلاغات
+                  </Typography>
+                </Stack>
+              </Box>
+            )}
+
+            {/* Pending Blogs Tab (Owner/Admin only) */}
+            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+              <Box
+                onClick={() => {
+                  handleTabChange(7)
+                  loadPendingBlogs()
+                }}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  bgcolor: currentTab === 7 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <ArticleIcon />
+                  <Typography fontWeight={currentTab === 7 ? 700 : 500}>
+                    المنشورات المعلقة
+                  </Typography>
+                </Stack>
+              </Box>
+            )}
 
             <Box
               onClick={() => navigate(`/groups/${groupName}/rules`)}
@@ -1586,6 +1839,351 @@ export default function GroupDashboard() {
             </Paper>
           </Box>
         )}
+
+        {/* Settings Tab */}
+        {currentTab === 5 && (userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={4}>
+                ⚙️ إعدادات المجموعة
+              </Typography>
+
+              <Stack spacing={4}>
+                {/* Publish Setting */}
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={groupData?.groupSettings?.publish ?? true}
+                        onChange={(e) => handleSettingsUpdate('publish', e.target.checked)}
+                        disabled={settingsLoading}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="h6" fontWeight={600}>
+                          النشر المباشر
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {groupData?.groupSettings?.publish !== false 
+                            ? 'المنشورات تظهر مباشرة بدون موافقة' 
+                            : 'المنشورات تحتاج موافقة المشرف قبل الظهور'
+                          }
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: 'flex-start', mb: 2 }}
+                  />
+                </Box>
+
+                <Divider />
+
+                {/* Allow Reports Setting */}
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={groupData?.groupSettings?.allowReports ?? true}
+                        onChange={(e) => handleSettingsUpdate('allowReports', e.target.checked)}
+                        disabled={settingsLoading}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="h6" fontWeight={600}>
+                          السماح بالبلاغات
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {groupData?.groupSettings?.allowReports !== false 
+                            ? 'الأعضاء يمكنهم إبلاغ عن المنشورات والتعليقات' 
+                            : 'البلاغات معطلة في هذه المجموعة'
+                          }
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: 'flex-start' }}
+                  />
+                </Box>
+              </Stack>
+
+              {settingsLoading && (
+                <Box sx={{ textAlign: 'center', mt: 3 }}>
+                  <CircularProgress size={24} />
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    جاري تحديث الإعدادات...
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+          </Box>
+        )}
+
+        {/* Reports Tab */}
+        {currentTab === 6 && (userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={3}>
+                📋 البلاغات
+              </Typography>
+              
+              {/* Report Type Tabs */}
+              <Stack direction="row" spacing={2} mb={3}>
+                <Button
+                  variant={reportType === 'blog' ? 'contained' : 'outlined'}
+                  onClick={() => handleReportTypeChange('blog')}
+                  startIcon={<ArticleIcon />}
+                >
+                  المنشورات
+                </Button>
+                <Button
+                  variant={reportType === 'comment' ? 'contained' : 'outlined'}
+                  onClick={() => handleReportTypeChange('comment')}
+                  startIcon={<CommentIcon />}
+                >
+                  التعليقات
+                </Button>
+              </Stack>
+              
+              {loadingReports ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : reports.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <ReportIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" mb={1}>
+                    لا توجد بلاغات
+                  </Typography>
+                  <Typography variant="body2" color="text.disabled">
+                    لم يتم الإبلاغ عن أي {reportType === 'blog' ? 'منشورات' : 'تعليقات'} في هذه المجموعة
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  {reports.map((report) => (
+                    <Paper 
+                      key={report.id} 
+                      elevation={1}
+                      sx={{ 
+                        p: 3, 
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          elevation: 3,
+                          borderColor: 'primary.main',
+                          transform: 'translateY(-2px)'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        {/* Reporter Info */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
+                          <Avatar 
+                            src={report.User?.photo ? `${API_BASE}/${report.User.photo}` : undefined}
+                            sx={{ 
+                              width: 56, 
+                              height: 56,
+                              border: '3px solid',
+                              borderColor: 'primary.light'
+                            }}
+                          >
+                            {report.User?.username?.[0]?.toUpperCase()}
+                          </Avatar>
+                          <Typography 
+                            variant="caption" 
+                            fontWeight={600}
+                            color="primary.main"
+                            sx={{ 
+                              mt: 1,
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              '&:hover': { textDecoration: 'underline' }
+                            }}
+                            onClick={() => navigate(`/profile/${report.User?.username}`)}
+                          >
+                            {report.User?.username || 'محذوف'}
+                          </Typography>
+                        </Box>
+                        
+                        {/* Report Details */}
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(report.createdAt).toLocaleDateString('ar-EG', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </Typography>
+                            <Chip 
+                              label={report.service === 'blog' ? '📝 منشور' : '💬 تعليق'} 
+                              size="small"
+                              variant="outlined"
+                              color={report.service === 'blog' ? 'primary' : 'secondary'}
+                            />
+                          </Box>
+                          
+                          <Box sx={{ 
+                            bgcolor: 'warning.light', 
+                            p: 2, 
+                            borderRadius: 2,
+                            mb: 2,
+                            borderLeft: '4px solid',
+                            borderLeftColor: 'warning.main'
+                          }}>
+                            <Typography variant="body2" fontWeight={600} color="warning.dark" mb={0.5}>
+                              ⚠️ سبب البلاغ:
+                            </Typography>
+                            <Typography variant="body1" color="warning.dark">
+                              {report.content}
+                            </Typography>
+                          </Box>
+                          
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button 
+                              variant="outlined" 
+                              size="small"
+                              startIcon={<ArticleIcon />}
+                              onClick={() => {
+                                setSelectedReport(report)
+                                setShowContentDialog(true)
+                              }}
+                            >
+                              عرض المحتوى
+                            </Button>
+                            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+                              <Button 
+                                variant="contained" 
+                                size="small"
+                                color="error"
+                                startIcon={<DeleteIcon />}
+                                onClick={() => {
+                                  if (report.Blog) handleDeleteBlog(report.Blog.id)
+                                  // TODO: Add delete comment function
+                                }}
+                              >
+                                حذف
+                              </Button>
+                            )}
+                          </Stack>
+                        </Box>
+                      </Box>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          </Box>
+        )}
+
+        {/* Pending Blogs Tab */}
+        {currentTab === 7 && (userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={3}>
+                📝 المنشورات المعلقة
+              </Typography>
+              
+              {loadingPending ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : pendingBlogs.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <ArticleIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" mb={1}>
+                    لا توجد منشورات معلقة
+                  </Typography>
+                  <Typography variant="body2" color="text.disabled">
+                    جميع المنشورات تمت الموافقة عليها
+                  </Typography>
+                </Box>
+              ) : (
+                <Stack spacing={2}>
+                  {pendingBlogs.map((blog) => (
+                    <Card 
+                      key={blog.id} 
+                      sx={{ 
+                        borderRadius: 2, 
+                        border: '1px solid', 
+                        borderColor: 'warning.light',
+                        opacity: processingBlog === blog.id ? 0.5 : 1,
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <CardContent>
+                        <Stack direction="row" spacing={2}>
+                          <Avatar 
+                            src={blog.userData?.photo ? `${API_BASE}/${blog.userData.photo}` : undefined}
+                            sx={{ width: 48, height: 48 }}
+                          >
+                            {blog.userData?.username?.[0]?.toUpperCase()}
+                          </Avatar>
+                          
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle1" fontWeight={600} mb={1}>
+                              {blog.title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" mb={2}>
+                              {blog.content?.substring(0, 150)}{blog.content?.length > 150 ? '...' : ''}
+                            </Typography>
+                            
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="caption" color="text.secondary">
+                                بواسطة: {blog.userData?.username || 'مستخدم'} • {new Date(blog.createdAt).toLocaleDateString('ar-EG')}
+                              </Typography>
+                              
+                              <Stack direction="row" spacing={1}>
+                                <Button 
+                                  variant="contained" 
+                                  size="small"
+                                  color="success"
+                                  onClick={() => handleAcceptBlog(blog.id)}
+                                  disabled={processingBlog === blog.id}
+                                >
+                                  {processingBlog === blog.id ? 'جاري القبول...' : 'قبول'}
+                                </Button>
+                                <Button 
+                                  variant="outlined" 
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleCancelBlog(blog.id)}
+                                  disabled={processingBlog === blog.id}
+                                >
+                                  {processingBlog === blog.id ? 'جاري الرفض...' : 'رفض'}
+                                </Button>
+                              </Stack>
+                            </Stack>
+                            
+                            {blog.photo && (
+                              <Box sx={{ mt: 2 }}>
+                                <img 
+                                  src={`${API_BASE}/${blog.photo}`}
+                                  alt={blog.title}
+                                  style={{ 
+                                    maxWidth: '100%', 
+                                    maxHeight: '200px', 
+                                    borderRadius: '8px',
+                                    objectFit: 'cover'
+                                  }}
+                                />
+                              </Box>
+                            )}
+                          </Box>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+          </Box>
+        )}
       </Box>
 
       {/* Kick Confirmation Dialog */}
@@ -1621,6 +2219,81 @@ export default function GroupDashboard() {
           >
             طرد
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Content View Dialog */}
+      <Dialog
+        open={showContentDialog}
+        onClose={() => setShowContentDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem' }}>
+          عرض المحتوى المبلغ عنه
+        </DialogTitle>
+        <DialogContent>
+          {selectedReport?.Blog && (
+            <Box>
+              <Typography variant="h6" fontWeight={600} mb={2}>
+                {selectedReport.Blog.title}
+              </Typography>
+              <Typography variant="body1" mb={2} sx={{ whiteSpace: 'pre-wrap' }}>
+                {selectedReport.Blog.content}
+              </Typography>
+              {selectedReport.Blog.User && (
+                <Typography variant="body2" color="text.secondary" mb={2}>
+                  <strong>كاتب المنشور:</strong> {selectedReport.Blog.User.username}
+                </Typography>
+              )}
+              {selectedReport.Blog.photo && (
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <img 
+                    src={`${API_BASE}/${selectedReport.Blog.photo}`}
+                    alt="صورة المنشور"
+                    style={{ 
+                      maxWidth: '100%', 
+                      maxHeight: '400px', 
+                      borderRadius: '8px',
+                      objectFit: 'contain'
+                    }}
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
+          {selectedReport?.commentsBlogs && (
+            <Box>
+              <Typography variant="body1" mb={2} sx={{ whiteSpace: 'pre-wrap' }}>
+                {selectedReport.commentsBlogs.content}
+              </Typography>
+              {selectedReport.commentsBlogs.User && (
+                <Typography variant="body2" color="text.secondary">
+                  <strong>كاتب التعليق:</strong> {selectedReport.commentsBlogs.User.username}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setShowContentDialog(false)}>
+            إغلاق
+          </Button>
+          {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin') && selectedReport?.Blog && (
+            <Button 
+              variant="contained" 
+              color="error"
+              onClick={() => {
+                handleDeleteBlog(selectedReport.Blog.id)
+                setShowContentDialog(false)
+              }}
+            >
+              حذف المحتوى
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

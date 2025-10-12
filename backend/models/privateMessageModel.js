@@ -34,6 +34,10 @@ const privateMessage = sequelize.define('privateMessages',{
     isDelete:{
         type:DataTypes.BOOLEAN,
         defaultValue:false
+    },
+    isRead:{
+        type:DataTypes.BOOLEAN,
+        defaultValue:false
     }
     
 },{

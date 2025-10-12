@@ -23,7 +23,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (storage.token) {
-      const newSocket = io(['http://localhost:5000',"https://symphony-frames-triumph-amongst.trycloudflare.com"], {
+      const newSocket = io('http://localhost:5000', {
         auth: {
           token: storage.token
         }

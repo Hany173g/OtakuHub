@@ -21,7 +21,10 @@ import {
   DialogActions,
   TextField,
   InputAdornment,
-  Alert
+  Alert,
+  IconButton,
+  Menu,
+  MenuItem
 } from '@mui/material'
 import {
   Edit as EditIcon,
@@ -33,9 +36,10 @@ import {
   Email as EmailIcon,
   Lock as LockIcon,
   PhotoCamera as PhotoCameraIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Block as BlockIcon
 } from '@mui/icons-material'
-import { storage, getProfile, deleteBlog, updateProfile, acceptFriendRequest, rejectFriendRequest, cancelFriend } from '../lib/api'
+import { storage, getProfile, deleteBlog, updateProfile, acceptFriendRequest, rejectFriendRequest, cancelFriend, blockUser } from '../lib/api'
 import BlogCard from '../components/BlogCard'
 import CreateBlogDialog from '../components/CreateBlogDialog'
 
@@ -59,6 +63,9 @@ export default function Profile() {
   const [createBlogOpen, setCreateBlogOpen] = useState(false)
   const [friendRequestSent, setFriendRequestSent] = useState(false)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState(null)
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
   
   const currentUser = storage.user
   const isOwnProfile = currentUser?.username === username
@@ -70,9 +77,7 @@ export default function Profile() {
   const loadProfile = async () => {
     try {
       setLoading(true)
-      console.log('Loading profile for:', username)
       const { data } = await getProfile(username)
-      console.log('Profile data received:', data)
       setProfileData(data)
     } catch (err) {
       console.error('Failed to load profile:', err)
@@ -237,7 +242,8 @@ export default function Profile() {
         statusUser: {
           ...prev.statusUser,
           isRequestSent: false,
-          isReceivedRequest: false
+          isReceivedRequest: false,
+          isFriend: false
         }
       }))
       
@@ -285,7 +291,8 @@ export default function Profile() {
         statusUser: {
           ...prev.statusUser,
           isRequestSent: false,
-          isReceivedRequest: false
+          isReceivedRequest: false,
+          isFriend: false
         }
       }))
       
@@ -320,12 +327,27 @@ export default function Profile() {
           isFriend: false
         }
       }))
-      
-      console.log('✅ تم إلغاء الصداقة')
     } catch (err) {
       console.error('❌ خطأ في إلغاء الصداقة:', err)
     } finally {
       setFriendRequestSent(false)
+    }
+  }
+
+  const handleBlockUser = async () => {
+    setBlockDialogOpen(false)
+    setMenuAnchor(null)
+    setBlockLoading(true)
+    
+    try {
+      await blockUser(username)
+      // Navigate away after successful block
+      navigate('/')
+    } catch (err) {
+      console.error('❌ خطأ في حظر المستخدم:', err)
+      alert(err.response?.data?.message || 'فشل في حظر المستخدم')
+    } finally {
+      setBlockLoading(false)
     }
   }
 
@@ -338,20 +360,20 @@ export default function Profile() {
         setProfileData(prev => ({
           ...prev,
           statusUser: {
-            ...prev.statusUser,
+            ...prev?.statusUser,
             isRequestSent: true,
-            isReceivedRequest: false
+            isReceivedRequest: false,
+            isFriend: false
           }
         }))
         
-        // Keep button disabled and show success message
-        setTimeout(() => {
-          setFriendRequestSent(false)
-          setFriendRequestStatus(null)
-        }, 3000)
+        // Reset loading state
+        setFriendRequestSent(false)
+        setFriendRequestStatus(null)
       } else {
         // Reset button on error
         setFriendRequestSent(false)
+        setFriendRequestStatus(null)
       }
     }
   }, [friendRequestStatus, setFriendRequestStatus])
@@ -379,7 +401,46 @@ export default function Profile() {
     <>
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2 } }}>
       {/* Profile Header */}
-      <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, mb: 3, borderRadius: 2, position: 'relative', overflow: 'visible' }}>
+        {/* More Options Menu - Only show for other users */}
+        {!isOwnProfile && (
+          <>
+            <IconButton
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
+              sx={{ 
+                position: 'absolute',
+                top: 16,
+                left: 16,
+                zIndex: 10,
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': {
+                  bgcolor: 'action.hover'
+                }
+              }}
+            >
+              <MoreVertIcon />
+            </IconButton>
+            
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+            >
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchor(null)
+                  setBlockDialogOpen(true)
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <BlockIcon sx={{ mr: 1 }} />
+                حظر المستخدم
+              </MenuItem>
+            </Menu>
+          </>
+        )}
+        
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems={{ xs: 'center', md: 'flex-start' }}>
           {/* Avatar */}
           <Avatar
@@ -458,6 +519,7 @@ export default function Profile() {
                   <Button
                     variant="outlined"
                     startIcon={<SettingsIcon />}
+                    onClick={() => navigate('/settings')}
                   >
                     الإعدادات
                   </Button>
@@ -804,6 +866,79 @@ export default function Profile() {
             }}
           >
             {friendRequestSent ? 'جاري الإلغاء...' : 'نعم، إلغاء الصداقة'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Block User Confirmation Dialog */}
+      <Dialog
+        open={blockDialogOpen}
+        onClose={() => setBlockDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700,
+          fontSize: '1.5rem',
+          color: 'error.main',
+          textAlign: 'center',
+          pb: 1
+        }}>
+          ⚠️ تأكيد الحظر
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              <Typography variant="body1" fontWeight={500}>
+                هل أنت متأكد من حظر <strong>{username}</strong>؟
+              </Typography>
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              • سيتم إلغاء الصداقة إذا كنتما أصدقاء
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • سيتم إلغاء أي طلب صداقة معلق
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • لن تستطيع رؤية منشورات بعضكما البعض
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • لن تستطيع إرسال رسائل لبعضكما البعض
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setBlockDialogOpen(false)}
+            variant="outlined"
+            disabled={blockLoading}
+            sx={{ 
+              minWidth: 100,
+              borderRadius: 2,
+              textTransform: 'none'
+            }}
+          >
+            إلغاء
+          </Button>
+          <Button
+            onClick={handleBlockUser}
+            variant="contained"
+            color="error"
+            disabled={blockLoading}
+            sx={{ 
+              minWidth: 120,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600
+            }}
+          >
+            {blockLoading ? 'جاري الحظر...' : 'نعم، حظر المستخدم'}
           </Button>
         </DialogActions>
       </Dialog>

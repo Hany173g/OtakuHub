@@ -1,8 +1,8 @@
-const{User,Blogs,GroupMember,historyDeleteGroup,pendingRequestsGroup,Groups,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
+const{User,Blogs,GroupMember,historyDeleteGroup,penningBlogs,groupSettings,pendingRequestsGroup,Groups,report,nestedComments,dislikesBlogs,BlogStats, commentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments} = require('../models/Relationships')
 
 
 const {isUser} =require('../utils/isUser')
-const {checkGroupData,checkGroup,checkRole,addLogger, checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
+const {checkGroupData,checkGroup,checkRole,addLogger, checkPenningBlogData,checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
 
 
@@ -13,7 +13,7 @@ const {createBlog} = require('../service/blogService')
 
 
 const sequelize = require('../config/database');
-const { where } = require('sequelize')
+const { where, Model } = require('sequelize')
 
 
 
@@ -48,6 +48,7 @@ exports.createGroup = async(req,res) => {
             photo: req.file.filename,
             name:groupName,
         })
+        await newGroup.createGroupSetting()
         await newGroup.addUser(user, { through: { role: 'owner' } })
     res.status(201).json({newGroup})
     }catch(err) 
@@ -103,7 +104,7 @@ exports.joinGroup = async(req,res) =>{
 exports.addPost = async(req,res) =>{
     try{
         let user = await isUser(req.user);
-        const {groupName,content,title}  = req.body;
+        const {groupName}  = req.body;
          let data =  await checkGroup(req.user,groupName);
         let group = data.group;
         let checkUser = data.checkUser;
@@ -111,8 +112,9 @@ exports.addPost = async(req,res) =>{
         {
             throw new Error("انت لست عضو في الجروب ")
         } 
-      let newBlog =   await createBlog(req.body,req.file,user,group.id)
-        res.status(201).json({blogData:newBlog})
+        let {newBlog,groupSetting} =   await createBlog(req.body,req.file,user,group.id)
+        console.log(newBlog)
+        res.status(201).json({blogData:newBlog,groupSettingPublish:groupSetting.publish})
     }catch(err)
     {
         res.status(200).json({message:err.message})
@@ -157,8 +159,8 @@ exports.getGroup = async(req,res) => {
             through: { where: { role: 'owner' } } 
         });
             groupData.ownerGroup = [owner[0].username,owner[0].photo]
-
-        res.status(200).json({groupData})
+        let groupSettings = await group.getGroupSetting();
+        res.status(200).json({groupData,groupSettings})
     }catch(err)
     {
         res.status(200).json({message:err.message})
@@ -491,7 +493,6 @@ exports.kickUser = async(req,res) => {
        {
             throw new Error("هذا الشخص ليس عضو بلفعل")
        }
- 
        await checkRole(kickUser[0].GroupMember.role,owner)
         await kickUser[0].GroupMember.destroy();
         await group.decrement('numberMembers', { by: 1 });
@@ -606,7 +607,6 @@ exports.changeOwner = async(req,res) => {
         console.log(checkUserGroup[0].GroupMember.role)
         await addLogger(group,checkUserGroup[0].id,"newOwner")
         await t.commit();
-          
         res.status(201).json();
     }catch(err)
     {
@@ -677,6 +677,129 @@ exports.getHistoryDelete = async(req,res) => {
 
 
 
+exports.getReportsGroup = async(req,res) => {
+    try{
+        const {groupName,service} = req.body;
+        if (!["blog","comment"].includes(service))
+        {
+            throw new Error("هذا القيمه غير موجوده")
+        }
+        let data =  await checkAcessMore(req.user,groupName)
+        let group = data.group
+        let serivceModel = service === "blog" ? Blogs : commentsBlogs
+        const attributesMap = {
+        blog: ['id', 'title', 'photo', 'content'],
+        comment: ['id', 'content', 'createdAt']
+        };
+        let groupReports = await group.getReports({where:{service},
+            include:[
+            {
+                model:User,
+                attributes:["id","username","photo"]
+            },
+            {
+              model:serivceModel,
+              attributes:attributesMap[service],
+              include:[
+                {
+                    model:User
+                }
+              ]
+            }
+        ]});
+        res.status(200).json({groupReports})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
 
 
+
+const checkUpdateGroupSettingsData = async(publish,allowReports,groupSettings) => {
+  publish = publish ?? groupSettings.publish;
+ 
+  allowReports = allowReports ?? groupSettings.allowReports;
+  
+  if (typeof publish !== "boolean"  || typeof allowReports !== "boolean")
+  {
+    throw new Error("البينات غير صحيحه")
+  }
+  return {publish,allowReports}
+}
+
+
+
+
+exports.updateGroupSettings = async(req,res) => {
+    try{
+        const {groupName,publish,allowReports} = req.body;
+        let {group} = await checkAcessMore(req.user,groupName)   
+        let groupSettings = await group.getGroupSetting();
+        if (!groupSettings)
+        {
+           await group.createGroupSetting()
+        }
+        console.log(groupSettings)
+        let data = await checkUpdateGroupSettingsData(publish,allowReports,groupSettings)
+       let newSettings =  await groupSettings.update(data)
+        res.status(201).json(newSettings)
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+exports.getBlogsPenning = async(req,res) => {
+    try{
+        const{groupName} = req.body;
+        let {group} = await checkAcessMore(req.user,groupName)   
+        const penningBlogs = await group.getPenningBlogs();
+        console.log(penningBlogs)
+        const penningBlogsIds = penningBlogs.map(blog => blog.blogId)
+        let blogs = await group.getBlogs({where:{id:penningBlogsIds}})
+        res.status(200).json({blogs})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+
+exports.acceptBlogPenned = async(req,res) => {
+    try{
+        const {groupName,blogId} = req.body;
+      
+          await checkPenningBlogData(req.user,groupName,blogId)
+      
+        res.status(200).json({message: 'تم قبول المنشور بنجاح'})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+exports.cancelBlogPenned = async(req,res) => {
+    try{
+        const {groupName,blogId} = req.body;
+          await checkPenningBlogData(req.user,groupName,blogId)
+        console.log(blogId)
+        let blog = await Blogs.findByPk(blogId)
+        if (!blog)
+        {
+            throw new Error("هذا المقاله غير موجوده")
+        }
+
+        await blog.destroy();
+        res.status(200).json({message: 'تم رفض المنشور بنجاح'})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
 

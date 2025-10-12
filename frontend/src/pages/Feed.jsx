@@ -300,7 +300,17 @@ export default function Feed() {
         ) : (
           <Stack spacing={2}>
             {blogs.map((b, idx) => (
-              <BlogCard key={b.id ?? `b-${idx}`} blog={b} isAuthed={isAuthed} onUpdateBlog={updateOne} onAddComment={onAddComment} />
+              <BlogCard 
+                key={b.id ?? `b-${idx}`} 
+                blog={b} 
+                isAuthed={isAuthed} 
+                onUpdateBlog={updateOne} 
+                onAddComment={onAddComment}
+                onDeleteBlog={(deletedBlogId) => {
+                  // Remove deleted blog from state without refresh
+                  setBlogs(prev => prev.filter(blog => blog.id !== deletedBlogId))
+                }}
+              />
             ))}
             {blogs.length === 0 && (
               <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>لا توجد تدوينات بعد</Typography>
@@ -427,7 +437,16 @@ export default function Feed() {
         </Paper>
       </Box>
 
-      <CreateBlogDialog open={open} onClose={() => setOpen(false)} onCreated={load} />
+      <CreateBlogDialog 
+        open={open} 
+        onClose={() => setOpen(false)} 
+        onCreated={(newBlog) => {
+          // Add new blog to the beginning of the list without refresh
+          if (newBlog) {
+            setBlogs(prev => [newBlog, ...prev])
+          }
+        }} 
+      />
       </Box>
     </Box>
   )

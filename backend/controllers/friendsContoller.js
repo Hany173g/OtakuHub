@@ -1,4 +1,6 @@
-const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend} = require('../models/Relationships');
+// Import models directly to avoid circular dependencies
+
+const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend} = require('../models/Relationships')
 
 
 const {Op, where} = require('sequelize')

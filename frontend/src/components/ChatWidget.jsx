@@ -23,16 +23,21 @@ export default function ChatWidget({ username, userPhoto, onClose, style = {} })
   const [loading, setLoading] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
   const messagesEndRef = useRef(null)
+  
+  // Early return if no username
+  if (!username || typeof username !== 'string' || username.trim() === '') {
+    return null
+  }
 
   useEffect(() => {
-      loadChat()
-      joinChat()
+      if (username) {
+        loadChat()
+        joinChat()
+      }
       
       // Listen for incoming messages
       if (socket) {
         socket.on('messageSend', (messageData) => {
-          console.log('📨 Received message:', messageData)
-          
           // Only add message if it's from the current chat partner
           if (messageData.fromUsername === username) {
             setMessages(prev => [...prev, {
@@ -47,8 +52,6 @@ export default function ChatWidget({ username, userPhoto, onClose, style = {} })
 
         // Listen for message confirmation (for sender)
         socket.on('messageConfirmed', (confirmData) => {
-          console.log('✅ Message confirmed:', confirmData)
-          
           // Only add if it's for this chat
           if (confirmData.toUsername === username) {
             setMessages(prev => [...prev, {
@@ -75,12 +78,17 @@ export default function ChatWidget({ username, userPhoto, onClose, style = {} })
   }, [messages])
 
   const loadChat = async () => {
+    if (!username || username.trim() === '') {
+      setLoading(false)
+      return
+    }
+    
     try {
       setLoading(true)
       const response = await getChat(username)
       setMessages(response.data.allChat || [])
     } catch (err) {
-      console.error('❌ خطأ في تحميل المحادثة:', err)
+      setMessages([])
     } finally {
       setLoading(false)
     }
@@ -93,6 +101,10 @@ export default function ChatWidget({ username, userPhoto, onClose, style = {} })
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return
+    
+    if (!username || username.trim() === '') {
+      return
+    }
 
     // Send via socket - will get confirmation back
     sendMessage(username, newMessage)

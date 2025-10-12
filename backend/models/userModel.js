@@ -6,13 +6,6 @@ const sequelize = require('../config/database');
 
 
 
-// 
-sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
-  .then(() => {
-    console.log("All tables are synced!");
-  })
-  .catch(err => console.log("Error syncing tables:", err));
-
 
 
 const User = sequelize.define('User',{
@@ -48,6 +41,16 @@ const User = sequelize.define('User',{
     tableName:"Users",
     timestamps:true
 })
+
+
+
+// // 
+// sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
+//   .then(() => {
+//     console.log("All tables are synced!");
+//   })
+//   .catch(err => console.log("Error syncing tables:", err));
+
 
 
 

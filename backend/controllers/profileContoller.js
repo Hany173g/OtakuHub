@@ -1,5 +1,5 @@
-const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend} = require('../models/Relationships');
 
+const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend,blocks} = require('../models/Relationships')
 
 
 const {getBlogs} = require('../service/getBlogs')
@@ -12,7 +12,7 @@ const {userRelations} = require('../utils/friendStatus')
 const {Op, where} = require('sequelize')
 
 const {valdtionData,checkUserData,valdtionDataUpdate} = require('../utils/auth')
-const{updateProfileValdtion,checkPhoto} = require('../utils/checkData')
+const{updateProfileValdtion,checkPhoto,checkIsBlock} = require('../utils/checkData')
 
 
 
@@ -21,6 +21,7 @@ const{updateProfileValdtion,checkPhoto} = require('../utils/checkData')
 exports.getProfile = async(req,res) => {
     try{
         const{username} = req.params;
+        
         if (!username)
         {
             throw new Error("البينات ليست كامله")
@@ -40,19 +41,15 @@ exports.getProfile = async(req,res) => {
               isOwner = profileData.userId === req.user.id
            
         }
-        else
-        {
-            isOwner = false;
-        }
         let blogs = await getBlogs(req,res,"profile",user)
         let statusUser = null;
+      
         if (!isOwner&& req.user) 
-        {
-            
+        {      
             const reqUserInstance = await User.findByPk(req.user.id);
-         
+            
             statusUser =  await userRelations(reqUserInstance,user)
-           
+            await checkIsBlock(reqUserInstance,user)
         }
         
         res.status(200).json({
@@ -61,12 +58,14 @@ exports.getProfile = async(req,res) => {
                 userData: {
                     username: user.username,
                     photo: user.photo
-                }
+                },
+                
             },
             isOwner,
             blogs,
             statusUser
         })
+  
     }catch(err)
     {
         res.status(400).json({message:err.message})
@@ -114,6 +113,7 @@ exports.addUserData = async(req,res) => {
 
 exports.requestsFriend = async(userData,friend) => {
         let user =   await  isUser(userData)
+        await checkIsBlock(userData,friend)
         let request = await requestFriend.findOne({
                 where: {
                     [Op.or]: [
@@ -126,7 +126,7 @@ exports.requestsFriend = async(userData,friend) => {
             {
                 throw new Error("لأ يمكنك ارسال طلبين")
             }       
-           
+   
          let friendProfile = await Profile.findOne({where:{userId:friend.id}});        
          let userProfile = await Profile.findOne({where:{userId:user.id}});        
                
@@ -152,11 +152,12 @@ exports.reject = async(req,res) => {
         let user = await isUser(req.user)
         const{username,service} = req.body;
         let friend = await User.findOne({where:{username}});
-        console.log(friend)
+       
         if (!friend)
         {
             throw new Error("هذا الشخص غير موجود")
         }
+        
         let friendRequest;
         if (service === 'rejectRequest')
         {
@@ -171,7 +172,6 @@ exports.reject = async(req,res) => {
         {
             
             friendRequest = await requestFriend.findOne({where:{friendId:friend.id,userId:user.id}});
-               
             let friendProfile = await Profile.findOne({where:{userId:friend.id}});      
             let userProfile = await Profile.findOne({where:{userId:user.id}})  
             await friendProfile.decrement('followers', { by: 1 });
@@ -269,3 +269,132 @@ exports.cancelFriend = async(req,res) => {
         res.status(400).json({message:err.message})
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exports.blockUser = async(req,res) =>{
+    try{
+        let user = await isUser(req.user)
+        const {username} = req.params;
+        if (username === user.username)
+        {
+            throw new Error("لأ يمكنك حظر نفسك")
+        }
+        let friend = await User.findOne({where:{username}})
+        if (!friend)
+        {
+            throw new Error("هذا الشخص غير موجود")
+        }
+              let block = await blocks.findOne({where:{
+                [Op.or]:[
+                    {recivceBlock:user.id,sentBlock:friend.id},
+                    {recivceBlock:friend.id,sentBlock:user.id}
+
+                ]
+            }})
+        if (block)
+        {
+            throw new Error("هذا الشخص محظور بلفعل")
+        }
+        let statusUser =  await userRelations(user,friend)
+        if (statusUser.request)
+        {
+            await statusUser.request.destroy();
+        }
+        else if (statusUser.isFriends)
+        {
+            await statusUser.isFriends.destroy();
+        }
+        let newBlock = await user.createSentBlock({recivceBlock:friend.id})
+        res.status(201).json()
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+exports.cancelBlock = async(req,res) => {
+    try{
+        let user = await isUser(req.user)
+        const {username} = req.params;
+        let friend = await User.findOne({where:{username}})
+         let block = await blocks.findOne({where:{
+                [Op.or]:[
+                    {recivceBlock:user.id,sentBlock:friend.id},
+                    {recivceBlock:friend.id,sentBlock:user.id}
+
+                ]
+            }})
+
+        if (!block)
+        {
+            throw new Error("انت لم تقم بحظره بلفعل")
+        }
+      
+        await block.destroy();
+        res.status(201).json();
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+
+
+
+exports.getBlocks = async(req,res) => {
+    try{
+         let user = await isUser(req.user)
+         let blocks = await user.getSentBlock();
+         let usersBlocksIds = blocks.map(blockUser => blockUser.recivceBlock)
+         let usersBlocks = await User.findAll({where:{id:usersBlocksIds},attributes:["id","username","photo"]})
+         res.status(200).json({usersBlocks})
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+exports.removeBlock = async(req,res) => {
+    try{
+         let user = await isUser(req.user)
+         if (!req.body.idBlock)
+         {
+            throw new Error("البينات ليست كامله")
+         }
+         const{idBlock} = req.body;
+         let blocks = await user.getSentBlock({where:{recivceBlock:idBlock}})
+         if (blocks.length < 1)
+         {
+            throw new Error("هذا الشخص غير موجود")
+         }
+         await blocks[0].destroy()
+         res.status(201).json()
+    }catch(err)
+    {
+        res.status(400).json({message:err.message})
+    }
+}
+
+
+
+
+
+
+
+

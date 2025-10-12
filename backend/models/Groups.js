@@ -51,12 +51,6 @@ const Groups = sequelize.define('Groups', {
 })
 
 
-// sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
-//   .then(() => {
-//     console.log("All tables are synced!");
-//   })
-//   .catch(err => console.log("Error syncing tables:", err));
-
 
 
 module.exports = {Groups}

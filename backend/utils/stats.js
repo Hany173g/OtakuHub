@@ -1,5 +1,7 @@
 const { where } = require("sequelize");
-const { likesBlogs ,Groups,likesComments,User,GroupMember, dislikesBlogs,dislikeComments,commentStats, Blogs} = require("../models/Relationships");
+const { likesBlogs ,Notifications,Groups,likesComments,User,GroupMember, dislikesBlogs,dislikeComments,commentStats, Blogs, Profile} = require("../models/Relationships");
+
+const{Notificationsystem} = require('../service/NotifcationService')
 
 
 
@@ -16,7 +18,8 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
     let like = service === 'blogs' ? likesBlogs : likesComments;
     let dislike = service === 'blogs' ? dislikesBlogs : dislikeComments
     let idColumn = service === 'blogs' ? 'blogId' : 'commentId';
-    const action = actionUser === 'like' ? 'like' : 'dislike';
+    const action = actionUser === 'like' ? 'like' : 'dislike';  
+    let userId;
     if (service ==='blogs')
     {
         let checkBlog = item.groupId;
@@ -24,6 +27,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
         {
            await checkGroupStats(checkBlog,user.id)
         }
+        userId = item.userId;
     }
     else
     {
@@ -61,10 +65,33 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                 if (action === 'dislike')
                 {
                     await user.createDislikesBlog({ [idColumn]: id });
+                    let content = `قام ${user.username} بعدم الإعجاب لمنشورك`;
+
+                    await Notificationsystem(
+                        item,
+                        user,
+                        "dislikeBlog",
+                        content
+                        )
+                  
                 }
                 else
                 {
                     await user.createLikesBlog({ [idColumn]: id });
+                    let profile = await Profile.findByPk(userId)
+                    if (!profile)
+                    {
+                        throw new Error("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب")
+                    }
+                    let content = `قام ${user.username}  بي الأعجاب لمنشورك`;
+
+                    await Notificationsystem(
+                        item,
+                        user,
+                        "dislikeBlog",
+                        content
+                        )
+                    await profile.increment("likes",{by:1})
                 }
                 actions = await item.getBlogStat();  
 
@@ -74,10 +101,28 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                 if (action === 'dislike')
             {
                 await user.createDislikeComment({ [idColumn]: id });
+                     let content = `قام ${user.username} بعدم الإعجاب لتعليقك`;
+
+                    await Notificationsystem(
+                        item,
+                        user,
+                        "dislikeBlog",
+                        content
+                        )
             }
             else
             {
                 await user.createLikesComment({ [idColumn]: id });
+                  
+                        let content = `قام ${user.username}  بي الأعجاب لتعليقك`;
+
+                    await Notificationsystem(
+                        item,
+                        user,
+                        "dislikeBlog",
+                        content
+                        )
+                
             }
                 actions = await item.getCommentStat();
             }
@@ -87,10 +132,12 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
             if (action === 'like')
             {
                 await actions.increment('likesNumber', { by: 1 });
+              
             }
             else
             {
                 await actions.increment('dislikeNumber', { by: 1 });
+            
             }
           
         }
@@ -127,10 +174,30 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                 else
                 {
                     await actions.decrement('likesNumber', { by: 1 });
+                     let profile = await Profile.findByPk(userId)
+                    if (!profile)
+                    {
+                        throw new Error("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب")
+                    }
+                    await profile.decrement("likes",{by:1})
                 }
                 
         }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

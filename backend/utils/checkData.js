@@ -3,7 +3,7 @@
 
 const {hashPassword} = require('./auth')
 
-const{Groups,historyDeleteGroup,pendingRequestsGroup,User,loggerGroup,Blogs,friends,commentsBlogs} = require('../models/Relationships')
+const{Groups,historyDeleteGroup,pendingRequestsGroup,penningBlogs,groupSettings,User,loggerGroup,blocks,Blogs,friends,commentsBlogs} = require('../models/Relationships')
 
 const {Op, where} = require('sequelize')
 
@@ -235,6 +235,10 @@ const checkRole = async(role,owner) => {
     {
         throw new Error("لأ تملك الصلأحيات الكافيه")
     }
+    else if (role === "Admin" && userRole === "Admin")
+    {
+        throw new Error("لأ تملك اللصلأحيات الكافيه")
+    }
 }
 
 
@@ -289,8 +293,9 @@ const userAction = async(groupName,id,data) =>
 
 
 
-const checkGroupRole = async(groupId,user,userId) => {
+const checkGroupRole = async(blog,user,userId) => {
        let checkRole;
+       let groupId = blog.groupId
      if (groupId)
            {
               let group = await Groups.findByPk(groupId);
@@ -299,8 +304,8 @@ const checkGroupRole = async(groupId,user,userId) => {
                     throw new Error("هذا الجروب الجروب غير موجود")
                 }  
               let member = await group.getUsers({through:{where:{userId:user.id, role: { [Op.in]: ['Admin', 'owner', 'Moderator'] } }}})
-           
-             if (member.length > 0)
+              let isOwnerBlog = blog.userId === userId;  
+             if (member.length > 0 || isOwnerBlog)
                 {
                     checkRole = member[0]
                 } 
@@ -310,6 +315,7 @@ const checkGroupRole = async(groupId,user,userId) => {
                 }
                  return {checkRole,group};
            }
+           return {checkRole}
 }
 
 
@@ -371,4 +377,134 @@ const addLogger = async(group,userId,status) => {
 
 
 
-module.exports = {addLogger,checkData,checkChangeRole,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}
+
+
+
+
+
+
+
+const checkReportData = async(service,serviceId,user,content) =>
+{
+    let group = null;
+     let serviceData ;
+        if (!["blog","comment"].includes(service) || !serviceId)
+        {
+            throw new Error("البينات غير صحيحه")
+        }
+        else if(content.length < 10 || content.length > 150)
+       {
+        throw new Error("يجب ان يكون حجم البلأغ اكبر من 10 احرف واقل او يساوي من 150 حرف")
+       }
+        if (service === 'blog')
+        {
+            serviceData = await Blogs.findByPk(serviceId)
+        }
+        else
+        {
+            serviceData = await commentsBlogs.findByPk(serviceId)
+        }
+         if (!serviceData)
+        {
+            throw new Error("هذا لعنصر غير موجود")
+        }
+        else if (serviceData.userId == user.id)
+        {
+            throw new Error("لأ يمكنك ابلغ عن شي انت قمت بنشره")
+        }
+        if (serviceData.groupId)
+        {
+             group = await Groups.findByPk(serviceData.groupId);
+            if (!group)
+            {
+                throw new Error("هذا الجروب غير موجود")
+            }
+        }
+        else if(serviceData.groupId === undefined)
+        {
+            let blog = await Blogs.findByPk(serviceData.blogId);
+            if (blog.groupId)
+            {
+                group = await Groups.findByPk(blog.groupId);
+                if (!group)
+                {
+                    throw new Error("هذا الجروب غير موجود")
+                }
+            }   
+        }
+    return {serviceData,group};
+}
+
+
+
+
+const checkPenningBlogData = async(data,groupName,blogId) => {
+      if (!blogId)
+        {
+            throw new Error("البينات ليست كامله")
+        }
+     await checkAcessMore(data,groupName)  
+        let blogPenned = await penningBlogs.findOne({where:{blogId}})
+        if (!blogPenned)
+        {
+            throw new Error("هذا المقاله غير موجوده")
+        } 
+        await blogPenned.destroy()
+}
+
+
+
+
+
+
+
+
+
+
+
+const checkIsBlock = async(user,friend) => {
+        let block = await blocks.findOne({where:{
+                [Op.or]:[
+                    {recivceBlock:user.id,sentBlock: friend.id},
+                    {recivceBlock:friend.id,sentBlock:user.id}
+
+                ]
+            }})
+     if (block)
+     {
+        throw new Error("هذا الشخص غير موجود")
+     }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+module.exports = {checkIsBlock,addLogger,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}

@@ -45,4 +45,12 @@ router.post('/deleteComment',blogContoller.deleteComment)
 
 router.get('/getBlogs',blogContoller.getBlogs)
 
+
+
+
+
+
+
+router.post('/reportService',blogContoller.reportService)
+
 module.exports = router

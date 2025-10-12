@@ -41,7 +41,7 @@ const userRelations = async(user, friend) => {
         }
        
   
-        return { isRequestSent,isReceivedRequest ,isFriend};
+        return { isRequestSent,isReceivedRequest ,isFriend,request,isFriends};
     } catch (err) {
         throw new Error(err.message);
     }

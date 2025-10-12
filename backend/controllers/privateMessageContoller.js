@@ -1,7 +1,7 @@
 const {privateMessage,User,friends}  =require('../models/Relationships')
 const {isUser} =require('../utils/isUser')
 
-const{checkDataMessage} = require('../utils/checkData')
+const{checkDataMessage,checkIsBlock} = require('../utils/checkData')
 
 const {Op, where, Error} = require('sequelize')
 
@@ -20,6 +20,7 @@ exports.sendMessage = async(username,content,user) => {
         {
             throw new Error("لأ يمكنك الأرسال لنفسك")
         }
+        await checkIsBlock(user,friend)
        await user.createSentMessage({receiveId:friend.id,content})
        return friend;
     }catch(err)
@@ -34,11 +35,18 @@ exports.getChat = async(req,res) => {
     try{
         let user = await isUser(req.user);
         const{username} = req.body;
+        
+        if (!username || username.trim() === '') {
+            throw new Error("اسم المستخدم مطلوب")
+        }
+        
         let friend = await User.findOne({where:{username}})
         if (!friend)
         {
             throw new Error("هذا الشخص غير موجود")
         }
+        
+   
        
         let sent = await user.getSentMessage({where:{receiveId:friend.id}, order: [['createdAt', 'ASC']]});
        
@@ -51,8 +59,18 @@ exports.getChat = async(req,res) => {
             ...received.map(msg => ({...msg.toJSON(),isOwner:false}))
         ]
 
-        
+        await privateMessage.update(
+        { isRead: true },
+        {
+            where: {
+            senderId: friend.id,
+            receiveId: user.id,
+            isRead: false
+            }
+        }
+        );
         let allChat = _.sortBy(messages, "createdAt");
+        
         res.status(200).json({allChat})
     }catch(err)
     {
