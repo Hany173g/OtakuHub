@@ -39,7 +39,7 @@ export const requestReset = (data) => api.post('/api/auth/forget-password/', dat
 export const resetPassword = (data) => api.post('/api/auth/forget-password/resetPassword', data)
 
 // Blogs
-export const getBlogs = () => api.get('/api/getBlogs')
+export const getBlogs = (lastNumber = 0) => api.post('/api/getBlogs', { lastNumber })
 
 export const createBlog = (payload) => {
   const form = new FormData()
@@ -74,7 +74,7 @@ export const deleteBlog = (blogId) => api.post('/api/deleteBlog', { blogId })
 export const deleteComment = (commentId) => api.post('/api/deleteComment', { commentId })
 
 // Profile functions
-export const getProfile = (username) => api.get(`/api/getProfile/${username}`)
+export const getProfile = (username, lastNumber = 0) => api.post(`/api/getProfile/${username}`, { lastNumber })
 export const updateProfile = (data) => api.post('/api/updateProfile/', data, { headers: { 'Content-Type': 'multipart/form-data' }})
 
 // Notifications functions
@@ -124,3 +124,4 @@ export const blockUser = (username) => api.post(`/api/profile/${username}/blockU
 export const getBlockedUsers = () => api.get('/api/profile/getBlocks')
 export const unblockUser = (username) => api.post(`/api/profile/${username}/cancelBlock`)
 export const getNotifications = () => api.get('/api/getNotication')
+export const search = (value, lastNumber = 0) => api.post('/api/search', { value, lastNumber })

@@ -14,9 +14,12 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemAvatar from '@mui/material/ListItemAvatar'
 import ListItemText from '@mui/material/ListItemText'
+import InputBase from '@mui/material/InputBase'
+import Paper from '@mui/material/Paper'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import PeopleIcon from '@mui/icons-material/People'
+import SearchIcon from '@mui/icons-material/Search'
 import { Link, useNavigate } from 'react-router-dom'
 import { storage, getFriendsRequest, acceptFriendRequest, rejectFriendRequest, getNotifications } from '../lib/api'
 import { useSocket } from '../contexts/SocketContext'
@@ -37,6 +40,9 @@ export default function Navbar() {
   const [friendsAnchor, setFriendsAnchor] = useState(null)
   const [friends, setFriends] = useState([])
   const [totalNotifications, setTotalNotifications] = useState(0)
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Load friend requests and notifications from API
   useEffect(() => {
@@ -82,6 +88,19 @@ export default function Navbar() {
     setNotificationAnchor(null)
     // Clear message notifications when closing the menu
     clearMessageNotifications()
+  }
+
+  // Search handlers
+  const handleSearchSubmit = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchQuery('')
+    }
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
   }
 
   const handleAcceptFriendRequest = async (username) => {
@@ -174,6 +193,64 @@ export default function Navbar() {
             🌟 OtakuHub
           </Typography>
         </Box>
+
+        {/* Search Bar */}
+        {isAuthed && (
+          <Box
+            component="form"
+            onSubmit={handleSearchSubmit}
+            sx={{ 
+              flex: 1,
+              maxWidth: '500px',
+              display: { xs: 'none', md: 'block' },
+              mx: 2
+            }}
+          >
+            <Paper
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '30px',
+                px: 2,
+                py: 0.5,
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                transition: 'all 0.3s',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.25)',
+                  transform: 'scale(1.02)',
+                  boxShadow: '0 4px 20px rgba(255, 255, 255, 0.2)'
+                }
+              }}
+            >
+              <SearchIcon sx={{ color: 'white', mr: 1 }} />
+              <InputBase
+                placeholder="ابحث في OtakuHub..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                sx={{
+                  flex: 1,
+                  color: 'white',
+                  '& ::placeholder': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    opacity: 1
+                  }
+                }}
+              />
+              <IconButton
+                type="submit"
+                sx={{
+                  color: 'white',
+                  p: 0.5,
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
+                }}
+              >
+                <SearchIcon />
+              </IconButton>
+            </Paper>
+          </Box>
+        )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1, md: 2 } }}>
           <Button 

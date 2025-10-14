@@ -14,7 +14,7 @@ const {checkSizePhoto} = require('../utils/upload')
 
 
 
-router.get('/getProfile/:username',profileContoller.getProfile);
+router.post('/getProfile/:username',profileContoller.getProfile);
 
 
 router.post('/updateProfile/',checkSizePhoto,profileContoller.addUserData)

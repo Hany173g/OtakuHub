@@ -15,7 +15,7 @@ export default function Feed() {
   const load = async () => {
     try {
       setLoading(true)
-      const { data } = await getBlogs()
+      const { data } = await getBlogs(0)
       const normalized = normalizeBlogs(data)
       setBlogs(normalized)
     } catch (err) {
@@ -58,7 +58,8 @@ export default function Feed() {
   }
 
   const normalizeBlogs = (data) => {
-    const src = data?.allBlogs
+    // Backend بقى يرجع array مباشرة مش wrapped في allBlogs
+    const src = Array.isArray(data) ? data : data?.allBlogs
     if (!Array.isArray(src)) return []
     const maybeInner = src[0]
     const arr = Array.isArray(maybeInner) ? maybeInner : src

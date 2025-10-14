@@ -82,6 +82,8 @@ let profileRoute = require('./routes/profileRoute');
 let NotificationsRoute = require('./routes/NotificationRoute')
 let messageRoute = require('./routes/messageRoute')
 let groupRoute = require('./routes/groupRoute')
+let searchRoute = require('./routes/searchRoute')
+
 
 
 app.use('/api/auth',registerRoute)
@@ -95,8 +97,17 @@ app.use('/api',messageRoute)
 app.use('/api',groupRoute)
 
 
+app.use('/api',searchRoute)
 
 
+
+
+
+
+
+app.use((err,req,res,next) => {
+  
+})
 
 
 

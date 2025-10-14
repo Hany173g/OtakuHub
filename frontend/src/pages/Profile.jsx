@@ -46,12 +46,18 @@ import CreateBlogDialog from '../components/CreateBlogDialog'
 export default function Profile() {
   const { username } = useParams()
   const navigate = useNavigate()
-  const { sendFriendRequest, friendRequestStatus, setFriendRequestStatus } = useSocket()
   const { openChat } = useChat()
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tabValue, setTabValue] = useState(0)
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [blogsLastNumber, setBlogsLastNumber] = useState(0)
+  const [open, setOpen] = useState(false)
+  const [anchorEl, setAnchorEl] = useState(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const currentUser = storage.user
+  const isOwnProfile = currentUser?.username === username
+
   const [updateData, setUpdateData] = useState({
     username: '',
     email: '',
@@ -66,24 +72,47 @@ export default function Profile() {
   const [menuAnchor, setMenuAnchor] = useState(null)
   const [blockDialogOpen, setBlockDialogOpen] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
-  
-  const currentUser = storage.user
-  const isOwnProfile = currentUser?.username === username
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [tabValue, setTabValue] = useState(0)
 
   useEffect(() => {
     loadProfile()
   }, [username])
 
-  const loadProfile = async () => {
+  const loadProfile = async (reset = true) => {
     try {
-      setLoading(true)
-      const { data } = await getProfile(username)
-      setProfileData(data)
+      const currentLastNumber = reset ? 0 : blogsLastNumber
+      reset ? setLoading(true) : setLoadingMore(true)
+      
+      const { data } = await getProfile(username, currentLastNumber)
+      console.log('🔍 Profile data received:', data)
+      
+      if (reset) {
+        setProfileData(data)
+        setBlogsLastNumber(data.blogs?.length || 0)
+      } else {
+        setProfileData(prev => ({
+          ...prev,
+          blogs: [...(prev.blogs || []), ...(data.blogs || [])]
+        }))
+        setBlogsLastNumber(prev => prev + (data.blogs?.length || 0))
+      }
+      
+      // Check if there are more blogs
+      setHasMore((data.blogs?.length || 0) === 20) // Backend limit is 20 for profile
+      
     } catch (err) {
-      console.error('Failed to load profile:', err)
-      setProfileData(null)
+      console.error('❌ Failed to load profile:', err)
+      if (reset) setProfileData(null)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
+    }
+  }
+
+  const loadMoreBlogs = () => {
+    if (!loadingMore && hasMore) {
+      loadProfile(false)
     }
   }
 
@@ -223,10 +252,6 @@ export default function Profile() {
 
   const handleSendFriendRequest = () => {
     if (!username) return
-    
-    // Clear previous status
-    setFriendRequestStatus(null)
-    sendFriendRequest(username)
     setFriendRequestSent(true)
   }
 
@@ -352,36 +377,10 @@ export default function Profile() {
   }
 
 
-  // Listen for friend request status changes
-  useEffect(() => {
-    if (friendRequestStatus) {
-      if (friendRequestStatus.success) {
-        // Update profileData to reflect the new status
-        setProfileData(prev => ({
-          ...prev,
-          statusUser: {
-            ...prev?.statusUser,
-            isRequestSent: true,
-            isReceivedRequest: false,
-            isFriend: false
-          }
-        }))
-        
-        // Reset loading state
-        setFriendRequestSent(false)
-        setFriendRequestStatus(null)
-      } else {
-        // Reset button on error
-        setFriendRequestSent(false)
-        setFriendRequestStatus(null)
-      }
-    }
-  }, [friendRequestStatus, setFriendRequestStatus])
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
+        <CircularProgress color="secondary" />
       </Box>
     )
   }
@@ -394,7 +393,8 @@ export default function Profile() {
     )
   }
 
-  const { profileData: profile, isOwner, blogs } = profileData
+  const profile = profileData
+  const { isOwner, blogs } = profileData
   const userInitials = (username || 'U').slice(0, 2).toUpperCase()
 
   return (
@@ -615,6 +615,29 @@ export default function Profile() {
                     />
                   </Grid>
                 ))}
+                
+                {/* Load More Button */}
+                {hasMore && !loading && (
+                  <Grid item xs={12}>
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <Button
+                        variant="outlined"
+                        onClick={loadMoreBlogs}
+                        disabled={loadingMore}
+                        sx={{ minWidth: 200 }}
+                      >
+                        {loadingMore ? (
+                          <>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            جاري التحميل...
+                          </>
+                        ) : (
+                          'تحميل المزيد'
+                        )}
+                      </Button>
+                    </Box>
+                  </Grid>
+                )}
               </Grid>
             ) : (
               <Box sx={{ 

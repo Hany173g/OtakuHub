@@ -43,8 +43,7 @@ router.post('/addComment/:blogId',blogContoller.addComment);
 router.post('/deleteBlog',blogContoller.deleteBlog)
 router.post('/deleteComment',blogContoller.deleteComment)
 
-router.get('/getBlogs',blogContoller.getBlogs)
-
+router.post('/getBlogs',blogContoller.getBlogs)
 
 
 

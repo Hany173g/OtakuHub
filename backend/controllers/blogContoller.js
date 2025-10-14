@@ -10,6 +10,7 @@ const {createBlog} = require('../service/blogService')
 
 
 const {getBlogs} = require('../service/getBlogs')
+const sequelize = require('../config/database')
 
 
 
@@ -164,10 +165,10 @@ exports.doAction = async(req,res) => {
 
 exports.getBlogs = async(req,res) => {
     try {
-    console.time("s")
+
     let allBlogs = await getBlogs(req,res,'home',null)
-    console.timeEnd("s")
-    res.status(200).json({allBlogs})
+   
+    res.status(200).json(allBlogs)
     }catch(err)
     {
         res.status(400).json({message:err.message})
@@ -292,3 +293,10 @@ exports.reportService = async(req,res) => {
         res.status(400).json({message:err.message})
     }
 }
+
+
+
+
+
+
+

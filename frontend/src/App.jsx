@@ -10,6 +10,7 @@ import GroupDetails from './pages/GroupDetails'
 import Settings from './pages/Settings'
 import GroupDashboard from './pages/GroupDashboard'
 import GroupRules from './pages/GroupRules'
+import SearchPage from './pages/SearchPage'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -121,6 +122,7 @@ export default function App() {
               <Container maxWidth="lg" sx={{ py: { xs: 1, md: 2 }, px: { xs: 1, sm: 2, md: 3 } }}>
                 <Routes>
                   <Route path="/" element={<FeedNew />} />
+                  <Route path="/search" element={<SearchPage />} />
                   <Route path="/groups" element={<Groups />} />
                   <Route path="/groups/:groupName" element={<GroupDetails />} />
                   <Route path="/groups/:groupName/dashboard" element={<GroupDashboard />} />

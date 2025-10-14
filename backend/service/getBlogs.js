@@ -15,22 +15,29 @@ const {
 
 const { Op } = require('sequelize');
 
-const getBlogs = async (req, res, service, user, group) => {
+const getBlogs = async (req, res, service, user, group,blogsData) => {
+  const{lastNumber} = req.body;
   let blogs;
 
   if (service === 'home') {
     blogs = await Blogs.findAll({
       where: { groupId: { [Op.is]: null } },
       include: [commentsBlogs],
-      limit: 20
+      offset:lastNumber,
+      limit: 10,
+      order:[['createdAt','DESC']]
     });
   } else if (service === 'group') {
-    blogs = await group.getBlogs({ limit: 20, include: [commentsBlogs] });
+    blogs = await group.getBlogs({ offset:lastNumber,limit: 10, include: [commentsBlogs] });
     const blogsIds = blogs.map(b => b.id);
-    const penningBlog = await penningBlogs.findAll({ where: { blogId: blogsIds } });
+    const penningBlog = await penningBlogs.findAll({ where: { blogId: blogsIds} });
     const penningBlogIds = new Set(penningBlog.map(pb => pb.blogId));
     blogs = blogs.filter(blog => !penningBlogIds.has(blog.id));
-  } else {
+  }
+  else if(service === "search")
+    {
+      blogs = blogsData
+    } else {
     blogs = await Blogs.findAll({
       where: { userId: user.id, groupId: { [Op.is]: null } },
       include: [commentsBlogs],

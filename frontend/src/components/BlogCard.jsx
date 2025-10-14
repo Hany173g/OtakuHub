@@ -439,8 +439,8 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
           <CardMedia 
             component="img" 
             height="450" 
-            image={`${API_BASE}/${blog.photo}`} 
-            alt={blog.title} 
+            image={`${API_BASE}/${localBlog.photo}`} 
+            alt={localBlog.title} 
             sx={{ 
               objectFit: 'cover',
               transition: 'all 0.3s ease',

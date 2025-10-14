@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Box, Stack, Typography, Button } from '@mui/material'
+import { useState, useEffect, useCallback } from 'react'
+import { Box, Stack, Typography, Button, CircularProgress } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import { getBlogs, addComment } from '../lib/api'
 import { storage } from '../lib/api'
@@ -9,25 +9,84 @@ import CreateBlogDialog from '../components/CreateBlogDialog'
 export default function Feed() {
   const [blogs, setBlogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [lastNumber, setLastNumber] = useState(0)
   const [open, setOpen] = useState(false)
   const isAuthed = !!storage.token
 
-  const load = async () => {
+  const load = async (reset = false) => {
     try {
-      setLoading(true)
-      const { data } = await getBlogs()
-      const normalized = normalizeBlogs(data)
-      setBlogs(normalized)
+      const currentLastNumber = reset ? 0 : lastNumber
+      reset ? setLoading(true) : setLoadingMore(true)
+      
+      console.log('🚀 Calling getBlogs with lastNumber:', currentLastNumber)
+      const response = await getBlogs(currentLastNumber)
+      console.log('📥 Response:', response)
+      
+      const normalized = normalizeBlogs(response.data)
+      console.log('✅ Normalized blogs:', normalized)
+      
+      if (reset) {
+        setBlogs(normalized)
+        setLastNumber(normalized.length)
+      } else {
+        setBlogs(prev => [...prev, ...normalized])
+        setLastNumber(prev => prev + normalized.length)
+      }
+      
+      // إذا جاء أقل من 10 منشورات، يبقى مفيش أكتر
+      setHasMore(normalized.length === 10)
+      
     } catch (err) {
-      console.error('getBlogs failed:', err)
+      console.error('❌ getBlogs failed:', err)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      load(false)
+    }
+  }, [loadingMore, hasMore, load])
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    // Check if user scrolled near bottom (within 100px)
+    const scrollTop = document.documentElement.scrollTop
+    const windowHeight = window.innerHeight
+    const docHeight = document.documentElement.offsetHeight
+    
+    if (scrollTop + windowHeight >= docHeight - 100 && !loadingMore && hasMore) {
+      loadMore()
+    }
+  }, [loadMore, loadingMore, hasMore])
+
   useEffect(() => {
-    load()
+    load(true)
   }, [])
+
+  // Add scroll listener with throttling
+  useEffect(() => {
+    let timeoutId = null
+    
+    const throttledScroll = () => {
+      if (timeoutId) return
+      
+      timeoutId = setTimeout(() => {
+        handleScroll()
+        timeoutId = null
+      }, 200) // Throttle to 200ms
+    }
+    
+    window.addEventListener('scroll', throttledScroll)
+    return () => {
+      window.removeEventListener('scroll', throttledScroll)
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [handleScroll])
 
   const handleUpdateBlog = (updatedBlog) => {
     setBlogs(prev => prev.map(blog => 
@@ -70,7 +129,8 @@ export default function Feed() {
   }
 
   const normalizeBlogs = (data) => {
-    const src = data?.allBlogs
+    // Backend بقى يرجع array مباشرة مش wrapped في allBlogs
+    const src = Array.isArray(data) ? data : data?.allBlogs
     if (!Array.isArray(src)) return []
     const maybeInner = src[0]
     const arr = Array.isArray(maybeInner) ? maybeInner : src
@@ -126,7 +186,27 @@ export default function Feed() {
               onDeleteBlog={handleDeleteBlog}
             />
           ))}
-          {blogs.length === 0 && (
+          
+          {/* Loading indicator at bottom */}
+          {loadingMore && (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <CircularProgress size={30} />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                جاري تحميل المزيد...
+              </Typography>
+            </Box>
+          )}
+          
+          {/* End of content indicator */}
+          {!hasMore && blogs.length > 0 && !loading && (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                🎉 وصلت لآخر المنشورات
+              </Typography>
+            </Box>
+          )}
+          
+          {blogs.length === 0 && !loading && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography color="text.secondary">
                 لا توجد تدوينات بعد

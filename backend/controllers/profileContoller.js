@@ -33,7 +33,7 @@ exports.getProfile = async(req,res) => {
         }
         let profileData = await Profile.findOne({where:{userId:user.id}});
       
-        let isOwner;
+        let isOwner = false;
       
         if (req.user)
         {
@@ -53,13 +53,10 @@ exports.getProfile = async(req,res) => {
         }
         
         res.status(200).json({
-            profileData: {
-                ...profileData.toJSON(),
-                userData: {
-                    username: user.username,
-                    photo: user.photo
-                },
-                
+            ...profileData.toJSON(),
+            userData: {
+                username: user.username,
+                photo: user.photo
             },
             isOwner,
             blogs,

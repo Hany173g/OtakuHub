@@ -3,7 +3,7 @@
 
 const {hashPassword} = require('./auth')
 
-const{Groups,historyDeleteGroup,pendingRequestsGroup,penningBlogs,groupSettings,User,loggerGroup,blocks,Blogs,friends,commentsBlogs} = require('../models/Relationships')
+const{Groups,penningBlogs,User,blocks,Blogs,friends,commentsBlogs, requestFriend} = require('../models/Relationships')
 
 const {Op, where} = require('sequelize')
 
@@ -438,6 +438,108 @@ const checkReportData = async(service,serviceId,user,content) =>
 
 
 
+
+const checkStatsUsers = async(users,user) => {
+    try{
+        const usersIds = users.map(user => user.id)
+        let[userFriends,requestFriends,recivceFriend] = await Promise.all([
+            friends.findAll({where:{[Op.or]:[{userId:usersIds},{friendId:usersIds}]}}),
+            requestFriend.findAll({where:{userId:usersIds}}),
+            requestFriend.findAll({where:{friendId:usersIds}})            
+        ])
+        let result = users.map(User =>  {
+            let userEdit = User.get({plain:true});
+            if (userEdit.id != user.id)
+            {
+                  userFriends.map(f => {
+                    if (f.friendId === User.id  || f.userId === User.id)
+                    {
+                        userEdit.isFriend = true
+                    }
+                })
+            if (!userEdit.isFriend)
+            {
+                userEdit.isRequestFriend = requestFriends.some(r => r.userId === User.id)
+            }
+            
+            else if (!userEdit.isRequestFriend)
+            {
+                userEdit.isRecivceFriend = recivceFriend.some(r => r.friendId === User.id)
+            }
+         
+            
+            
+            }
+            else
+            {
+                userEdit.isOwner = true
+            }
+            return userEdit
+        })
+      return result;
+    }catch(err)
+     {
+        throw new Error(err.message)
+    }
+}
+
+
+
+
+
+const checkGroupStats = async(GroupsData,user) => {
+    try{
+        const groupsIds = GroupsData.map(group => group.id)
+        const userGroups = await Groups.findAll({where:{id:groupsIds}})
+        let result = [];
+        
+
+        for (let group of userGroups)
+        {
+            let members = await group.getUsers({through:{where:{userId:user.id}}})
+            let groupPlain = group.get({ plain: true });
+            groupPlain.isMember = members.length > 0
+            if (groupPlain.isMember)
+            {
+                  groupPlain.role = members[0].GroupMember.role || null
+            }
+          
+           
+           result.push(groupPlain)
+        }
+        return result
+    }catch(err)
+    {
+        throw new Error(err.message)
+    }
+}
+
+
+
+
+const checkBlogsStats = async(blogs) => {
+    try{
+        let groupsIds = blogs.map(blog => blog.groupId).filter(Boolean)
+        let groups = await Groups.findAll({where:{id:groupsIds,privacy:'public'}})
+     
+        let result = blogs.map(blog => {
+     
+          let checkPriacy = groups.find(group => group.id === blog.groupId)
+          if (checkPriacy)
+            {
+                return checkPriacy
+            }  
+        })
+        return result
+    }catch(err)
+    {
+        throw new Error(err.message)        
+    }
+}
+
+
+
+
 const checkPenningBlogData = async(data,groupName,blogId) => {
       if (!blogId)
         {
@@ -478,33 +580,4 @@ const checkIsBlock = async(user,friend) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-module.exports = {checkIsBlock,addLogger,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}
+module.exports = {checkIsBlock,addLogger,checkBlogsStats,checkGroupStats,checkStatsUsers,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}

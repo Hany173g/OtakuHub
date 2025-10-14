@@ -159,14 +159,13 @@ const{Notification} = require('./notificationModel')
         User.belongsToMany(Blogs,{through:'Notification',foreignKey:"userId",otherKey:"serviceId",onDelete:"CASCADE"})
         Blogs.belongsToMany(User,{through:"Notification",foreignKey:"serviceId",otherKey:"userId",onDelete:"CASCADE"})
         
-
         // relation user to comment => notfcs
 
         User.belongsToMany(commentsBlogs,{through:"Notification",foreignKey:"userId",otherKey:"serviceId",onDelete:"CASCADE"})
         commentsBlogs.belongsToMany(User,{through:"Notification",foreignKey:"serviceId",otherKey:"userId",onDelete:"CASCADE"})
     
         //relation user to reports
-
+        
         User.hasMany(report,{foreignKey:"userId"})
         report.belongsTo(User,{foreignKey:"userId"})
 
@@ -207,6 +206,12 @@ const{Notification} = require('./notificationModel')
             // relationship blogs to reports
             Blogs.hasMany(report,{foreignKey:'serviceId',onDelete:'CASCADE'})
             report.belongsTo(Blogs,{foreignKey:'serviceId'});
+
+
+
+
+
+
 
 // comment RelationShips
 
