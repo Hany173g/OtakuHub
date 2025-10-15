@@ -29,6 +29,69 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Response interceptor for unified error handling
+api.interceptors.response.use(
+  (response) => {
+    // Success responses (2xx)
+    return response
+  },
+  (error) => {
+    // Handle different error scenarios
+    if (error.response) {
+      // Server responded with error status
+      const { status, data } = error.response
+      
+      // Extract error message from response
+      const message = data?.message || 'حدث خطأ غير متوقع'
+      
+      // Handle specific status codes
+      switch (status) {
+        case 401:
+          // Unauthorized - clear auth data and redirect to login
+          storage.token = null
+          storage.user = null
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+            window.location.href = '/login'
+          }
+          break
+        case 403:
+          // Forbidden
+          console.error('❌ Access denied:', message)
+          break
+        case 404:
+          // Not found
+          console.error('❌ Resource not found:', message)
+          break
+        case 422:
+          // Validation error
+          console.error('❌ Validation error:', message)
+          break
+        case 500:
+          // Server error
+          console.error('❌ Server error:', message)
+          break
+        default:
+          console.error(`❌ Error ${status}:`, message)
+      }
+      
+      // Create standardized error object
+      const apiError = new Error(message)
+      apiError.status = status
+      apiError.data = data
+      return Promise.reject(apiError)
+    } else if (error.request) {
+      // Network error
+      const networkError = new Error('فشل في الاتصال بالخادم')
+      networkError.status = 0
+      networkError.isNetworkError = true
+      return Promise.reject(networkError)
+    } else {
+      // Other error
+      return Promise.reject(error)
+    }
+  }
+)
+
 // Auth
 export const register = (data) => api.post('/api/auth/register', data)
 export const login = (data) => api.post('/api/auth/login', data)

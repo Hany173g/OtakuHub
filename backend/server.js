@@ -104,9 +104,11 @@ app.use('/api',searchRoute)
 
 
 
+let errorHandling = require('./middlewares/errorHandling')
+
 
 app.use((err,req,res,next) => {
-  
+  errorHandling(err,req,res,next)
 })
 
 

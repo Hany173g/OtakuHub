@@ -9,7 +9,7 @@ const { where } = require('sequelize');
 
 
 
-const createBlog = async(Data,photo,user,id) => {
+const createBlog = async(Data,photo,user,id,next) => {
    let data = checkData(Data); 
  
     
@@ -18,7 +18,7 @@ const createBlog = async(Data,photo,user,id) => {
     if (photo)
     {  
      
-        checkPhoto(photo)
+        checkPhoto(photo,next)
         newBlog = await user.createBlog({
             content:data.content
             ,title:data.title
@@ -41,14 +41,12 @@ const createBlog = async(Data,photo,user,id) => {
          let group = await Groups.findByPk(groupId)
          if (!group)
          {
-            throw new Error("هذا الجروب غير موجود")
+             return next(createError("هذا الجروب غير موجود",400))
          }
           groupSetting = await group.getGroupSetting();
          let userRole = await group.getUsers({where:{id:user.id},through:{where:{userId:user.id}}});
-         console.log(userRole[0].GroupMember.role)
          if (!groupSetting.publish && !["owner","Admin","Moderator"].includes(userRole[0].GroupMember.role))
          {
-            console.log("1")
             await group.createPenningBlog({blogId:newBlog.id});
          }
     }

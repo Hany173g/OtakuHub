@@ -63,7 +63,7 @@ export default function Settings() {
       setSelectedUser(null)
     } catch (err) {
       console.error('Error unblocking user:', err)
-      alert(err.response?.data?.message || 'فشل في إلغاء الحظر')
+      alert(err.message || 'فشل في إلغاء الحظر')
     } finally {
       setProcessing(false)
     }

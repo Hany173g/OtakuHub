@@ -188,7 +188,7 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
       console.log('Comment reaction successful')
     } catch (err) {
       console.error('Failed to react to comment:', err)
-      console.error('Error details:', err.response?.data || err.message)
+      console.error('Error details:', err.message)
       // If backend fails, we could revert the change here if needed
       // But for now, we'll keep the optimistic update
     }

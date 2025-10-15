@@ -259,7 +259,7 @@ export default function GroupDashboard() {
       console.error('Error accepting user:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل قبول العضو', 
+        message: err.message || 'فشل قبول العضو', 
         severity: 'error' 
       })
     } finally {
@@ -278,7 +278,7 @@ export default function GroupDashboard() {
       console.error('Error rejecting user:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل رفض العضو', 
+        message: err.message || 'فشل رفض العضو', 
         severity: 'error' 
       })
     } finally {
@@ -331,7 +331,7 @@ export default function GroupDashboard() {
       console.error('💥 Error status:', err.response?.status)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل تغيير الصلاحية', 
+        message: err.message || 'فشل تغيير الصلاحية', 
         severity: 'error' 
       })
     } finally {
@@ -356,7 +356,7 @@ export default function GroupDashboard() {
       console.error('Error kicking user:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل طرد العضو', 
+        message: err.message || 'فشل طرد العضو', 
         severity: 'error' 
       })
     } finally {
@@ -386,7 +386,7 @@ export default function GroupDashboard() {
       console.error('Error transferring ownership:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل نقل الملكية', 
+        message: err.message || 'فشل نقل الملكية', 
         severity: 'error' 
       })
     } finally {
@@ -423,7 +423,7 @@ export default function GroupDashboard() {
       console.error('Error updating group:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل حفظ الإعدادات', 
+        message: err.message || 'فشل حفظ الإعدادات', 
         severity: 'error' 
       })
     } finally {
@@ -444,7 +444,7 @@ export default function GroupDashboard() {
       console.error('Error deleting group:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل حذف المجموعة', 
+        message: err.message || 'فشل حذف المجموعة', 
         severity: 'error' 
       })
     } finally {
@@ -464,7 +464,7 @@ export default function GroupDashboard() {
       console.error('Error leaving group:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل مغادرة المجموعة', 
+        message: err.message || 'فشل مغادرة المجموعة', 
         severity: 'error' 
       })
     }
@@ -495,7 +495,7 @@ export default function GroupDashboard() {
       console.error('Error response:', err.response?.data)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل تحميل النشاطات', 
+        message: err.message || 'فشل تحميل النشاطات', 
         severity: 'error' 
       })
     } finally {
@@ -521,7 +521,7 @@ export default function GroupDashboard() {
       console.error('Error response:', err.response?.data)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل تحميل سجل الحذف', 
+        message: err.message || 'فشل تحميل سجل الحذف', 
         severity: 'error' 
       })
     } finally {
@@ -571,7 +571,7 @@ export default function GroupDashboard() {
       console.error('Error updating settings:', err)
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل في تحديث الإعدادات', 
+        message: err.message || 'فشل في تحديث الإعدادات', 
         severity: 'error' 
       })
     } finally {
@@ -616,7 +616,7 @@ export default function GroupDashboard() {
     } catch (err) {
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل في حذف المنشور', 
+        message: err.message || 'فشل في حذف المنشور', 
         severity: 'error' 
       })
     }
@@ -654,7 +654,7 @@ export default function GroupDashboard() {
     } catch (err) {
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل في قبول المنشور', 
+        message: err.message || 'فشل في قبول المنشور', 
         severity: 'error' 
       })
     } finally {
@@ -676,7 +676,7 @@ export default function GroupDashboard() {
     } catch (err) {
       setSnackbar({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل في رفض المنشور', 
+        message: err.message || 'فشل في رفض المنشور', 
         severity: 'error' 
       })
     } finally {

@@ -20,7 +20,7 @@ export default function ResetPassword() {
       setSuccess('تم تحديث كلمة المرور بنجاح')
       setTimeout(()=> navigate('/login'), 1000)
     } catch (err) {
-      setError(err?.response?.data?.message || 'حدث خطأ ما')
+      setError(err.message || 'حدث خطأ ما')
     } finally {
       setLoading(false)
     }

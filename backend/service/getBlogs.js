@@ -16,7 +16,8 @@ const {
 const { Op } = require('sequelize');
 
 const getBlogs = async (req, res, service, user, group,blogsData) => {
-  const{lastNumber} = req.body;
+  const{lastNumber = 0} = req.body || {};
+  console.log(' getBlogs called with:', { service, lastNumber, hasUser: !!user, hasGroup: !!group });
   let blogs;
 
   if (service === 'home') {

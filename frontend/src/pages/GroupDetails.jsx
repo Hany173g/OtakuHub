@@ -78,7 +78,7 @@ export default function GroupDetails() {
       setGroupSettings(data.groupSettings)
     } catch (err) {
       console.error('Error loading group:', err)
-      console.error('Error details:', err.response?.data)
+      console.error('Error details:', err.message)
     } finally {
       setLoading(false)
     }

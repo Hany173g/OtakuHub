@@ -22,7 +22,7 @@ module.exports = (io,socket) => {
                 socket.userId = user.id;           
             }catch(err)
             {
-                console.log('❌ Error in onlineUser:', err.message)
+            
                 socket.emit('error', { message: err.message });
             }
     

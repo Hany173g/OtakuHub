@@ -96,7 +96,7 @@ export default function Groups() {
       })
       loadGroups()
     } catch (err) {
-      setFormError(err.response?.data?.message || 'حدث خطأ أثناء إنشاء المجموعة')
+      setFormError(err.message || 'حدث خطأ أثناء إنشاء المجموعة')
     } finally {
       setCreating(false)
     }

@@ -16,7 +16,7 @@ export default function ForgotPassword() {
       await requestReset({ email })
       setSuccess('تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني')
     } catch (err) {
-      setError(err?.response?.data?.message || 'حدث خطأ ما')
+      setError(err.message || 'حدث خطأ ما')
     } finally {
       setLoading(false)
     }

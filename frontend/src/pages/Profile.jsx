@@ -184,7 +184,7 @@ export default function Profile() {
         window.location.reload()
       }
     } catch (err) {
-      setUpdateError(err?.response?.data?.message || 'حدث خطأ ما')
+      setUpdateError(err.message || 'حدث خطأ ما')
     } finally {
       setUpdateLoading(false)
     }
@@ -370,7 +370,7 @@ export default function Profile() {
       navigate('/')
     } catch (err) {
       console.error('❌ خطأ في حظر المستخدم:', err)
-      alert(err.response?.data?.message || 'فشل في حظر المستخدم')
+      alert(err.message || 'فشل في حظر المستخدم')
     } finally {
       setBlockLoading(false)
     }

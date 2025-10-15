@@ -54,7 +54,7 @@ export default function CreateBlogDialog({ open, onClose, onCreated, groupName, 
         onClose?.()
       }, 2000) // ينتظر ثانيتين
     } catch (err) {
-      const msg = err?.response?.data?.message || 'تعذّر إنشاء التدوينة'
+      const msg = err.message || 'تعذّر إنشاء التدوينة'
       setSnack({ open: true, message: msg, severity: 'error' })
     } finally {
       setLoading(false)

@@ -15,7 +15,7 @@ const sequelize = require('../config/database');
 
 
 
-exports.seacrchEngine = async(req,res) => {
+exports.seacrchEngine = async(req,res,next) => {
     try{
         const{value} = req.body;
         let user;
@@ -49,8 +49,7 @@ exports.seacrchEngine = async(req,res) => {
         res.status(200).json({userStats,blogsData,groupsStats});
     }catch(err)
     {
-        console.log(err.message)
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 

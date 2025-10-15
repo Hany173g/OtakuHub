@@ -2,6 +2,7 @@ const {User} = require('../models/userModel');
 const {resetToken} = require('../models/resetToken');
 
 
+const {createError} = require('../utils/createError')
 
 
 const {randomToken,hashPassword,checkResetData} = require('../utils/auth');
@@ -22,7 +23,7 @@ exports.forgetPassword = async(req,res) => {
         let user = await User.findOne({where:{email}});
         if (!user)
         {
-            throw new Error("هذا المستخدم غير موجود")
+            return  next(createError("هذا المستخدم غير موجود",400))
         }
         let token = randomToken() + '_'+user.id.toString();;
         await resetToken.create({token,expiredToken:Date.now()})
@@ -30,7 +31,7 @@ exports.forgetPassword = async(req,res) => {
         res.status(200).json({message:"من فضلك قم بتفحص الأميل الخاص بك"})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+          next(createError(err.message,401))
     }
 }
 
@@ -58,7 +59,7 @@ exports.forgetPassword = async(req,res) => {
 // }
 
 
-exports.resetPassword = async(req,res) => {
+exports.resetPassword = async(req,res,next) => {
     try{
         const {newPassword,token} = req.body;
         let checkToken = await resetToken.findOne({where:{token}});
@@ -67,11 +68,12 @@ exports.resetPassword = async(req,res) => {
         let hour = 1000 * 60 *60;
         if (!checkToken)
         {
-            throw new Error("هذا الكود غير صحيح او انتهاء مده المسموح به")
+             return  next(createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400))
+         
         }
         else if (now > checkToken.expiredToken  + hour )
         {
-             throw new Error("هذا الكود غير صحيح او انتهاء مده المسموح به")
+             return  next(createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400))
         }
         checkResetData(newPassword,token)
         let parts = token.split('_');
@@ -84,7 +86,7 @@ exports.resetPassword = async(req,res) => {
         res.status(201).json({message:"تم تحديث الرمز بنجاح"})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(createError(err.message,401))
     }
 }
 

@@ -18,14 +18,14 @@ exports.sendMessage = async(username,content,user) => {
        let friend = await checkDataMessage(username,content,user);
         if (user.id === friend.id)
         {
-            throw new Error("لأ يمكنك الأرسال لنفسك")
+             return  next(createError("لأ يمكنك الأرسال لنفسك",400))
         }
         await checkIsBlock(user,friend)
        await user.createSentMessage({receiveId:friend.id,content})
        return friend;
     }catch(err)
     {
-       throw new Error(err.message)
+       next(err)
     }
 }
 
@@ -37,13 +37,13 @@ exports.getChat = async(req,res) => {
         const{username} = req.body;
         
         if (!username || username.trim() === '') {
-            throw new Error("اسم المستخدم مطلوب")
+            return  next(createError("اسم المستخدم مطلوب",400))
         }
         
         let friend = await User.findOne({where:{username}})
         if (!friend)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجوده",400))
         }
         
    
@@ -74,7 +74,7 @@ exports.getChat = async(req,res) => {
         res.status(200).json({allChat})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -88,17 +88,17 @@ exports.deleteMessage = async(data,messageId) => {
         let message = await privateMessage.findOne({where:{id:messageId}});
         if (!message)
         {
-            throw new Error("هذا الرساله غير موجوده")
+               return  next(createError("هذا الرساله غير موجوده",400))
         }
         if (message.senderId != user.id)
         {
-            throw new Error("لأ يمكن حذف رساله ليست لك")
+            return  next(createError("لأ يمكن حذف رساله ليست لك",400))
         }
         await message.update({content:"هذا الرساله تم حذفها",})
     
     }catch(err)
     {
-        throw new Error(err.message)
+        next(err)
     }
 }
 

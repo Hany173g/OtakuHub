@@ -21,7 +21,8 @@ export default function Register() {
       setSuccess('تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن')
       setTimeout(()=> navigate('/login'), 800)
     } catch (err) {
-      setError(err?.response?.data?.message || 'حدث خطأ ما')
+      // الـ API interceptor بيرجع error.message مباشرة
+      setError(err.message || 'حدث خطأ ما')
     } finally {
       setLoading(false)
     }

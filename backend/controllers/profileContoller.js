@@ -24,12 +24,14 @@ exports.getProfile = async(req,res) => {
         
         if (!username)
         {
-            throw new Error("البينات ليست كامله")
+            return  next(createError("البينات ليست كامله",400))
+           
         }
         let user = await User.findOne({where:{username}});
         if (!user)
         {
-            throw new Error("هذا المستخدم غير موجود او تم حذف حسابه")
+            return  next(createError("هذا المستخدم غير موجود او تم حذف حسابه",400))
+    
         }
         let profileData = await Profile.findOne({where:{userId:user.id}});
       
@@ -65,7 +67,7 @@ exports.getProfile = async(req,res) => {
   
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -99,7 +101,7 @@ exports.addUserData = async(req,res) => {
         })
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -121,7 +123,7 @@ exports.requestsFriend = async(userData,friend) => {
                 });
          if (request)
             {
-                throw new Error("لأ يمكنك ارسال طلبين")
+                return  next(createError("لأ يمكنك ارسال طلبين",400))
             }       
    
          let friendProfile = await Profile.findOne({where:{userId:friend.id}});        
@@ -152,7 +154,7 @@ exports.reject = async(req,res) => {
        
         if (!friend)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",404))
         }
         
         let friendRequest;
@@ -177,13 +179,14 @@ exports.reject = async(req,res) => {
       
         if (!friendRequest)
         {
-            throw new Error("هذا الطلب غير موجود")
+             return  next(createError("هذا الطلب غير موجود",404))
+        
         }
         await friendRequest.destroy();
         res.status(201).json();
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+      next(err)
     }
 }
 
@@ -198,17 +201,18 @@ exports.acceptRequest = async(req,res) => {
    
         if (!friend)
         {
-            throw new Error("هذا الشخص غير موجود")
+             return  next(createError("هذا الشخص غير موجود",404))
+    
         }
         let friendRequest = await requestFriend.findOne({where:{userId:friend.id,friendId:user.id}});
         
         if (!friendRequest )
         {
-            throw new Error("هذا الطلب غير موجود")
+           return  next(createError("هذا الطلب غير موجود",404))
         }
         else if (friendRequest.friendId != user.id)
         {
-            throw new Error("لأ يمكنك قبول طلب انت ارسلته")
+             return  next(createError("لأ يمكنك قبول طلب انت ارسلته",400))
         }
          let userProfile = await Profile.findOne({where:{userId:user.id}});  
          let friendProfile = await Profile.findOne({where:{userId:friend.id}});  
@@ -220,7 +224,7 @@ exports.acceptRequest = async(req,res) => {
         res.status(201).json({})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -239,7 +243,7 @@ exports.cancelFriend = async(req,res) => {
         let friend = await User.findOne({where:{username}});
         if (!friend)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
         }
         let isFriend = await friends.findOne({
                 where: {
@@ -257,13 +261,13 @@ exports.cancelFriend = async(req,res) => {
         await friendProfile.decrement('UserFollows',{by:1})
         if (!isFriend)
         {
-            throw new Error("انتم لستم اصدقاء بلفعل")
+             return  next(createError("انتم لستم اصدقاء بلفعل",400))
         }
         await isFriend.destroy();
         res.status(201).json({});
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -286,12 +290,12 @@ exports.blockUser = async(req,res) =>{
         const {username} = req.params;
         if (username === user.username)
         {
-            throw new Error("لأ يمكنك حظر نفسك")
+            return  next(createError("لأ يمكنك حظر نفسك",400))
         }
         let friend = await User.findOne({where:{username}})
         if (!friend)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
         }
               let block = await blocks.findOne({where:{
                 [Op.or]:[
@@ -302,7 +306,8 @@ exports.blockUser = async(req,res) =>{
             }})
         if (block)
         {
-            throw new Error("هذا الشخص محظور بلفعل")
+             return  next(createError("هذا الشخص محظور بلفعل",400))
+
         }
         let statusUser =  await userRelations(user,friend)
         if (statusUser.request)
@@ -317,7 +322,7 @@ exports.blockUser = async(req,res) =>{
         res.status(201).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -336,14 +341,14 @@ exports.cancelBlock = async(req,res) => {
 
         if (!block)
         {
-            throw new Error("انت لم تقم بحظره بلفعل")
+             return  next(createError("انت لم تقم بحظره بلفعل",400))
         }
       
         await block.destroy();
         res.status(201).json();
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -363,7 +368,7 @@ exports.getBlocks = async(req,res) => {
          res.status(200).json({usersBlocks})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -372,19 +377,20 @@ exports.removeBlock = async(req,res) => {
          let user = await isUser(req.user)
          if (!req.body.idBlock)
          {
-            throw new Error("البينات ليست كامله")
+             return  next(createError("البينات ليست كامله",400))
          }
          const{idBlock} = req.body;
          let blocks = await user.getSentBlock({where:{recivceBlock:idBlock}})
          if (blocks.length < 1)
          {
-            throw new Error("هذا الشخص غير موجود")
+             return  next(createError("هذا الشخص غير موجود",400))
+
          }
          await blocks[0].destroy()
          res.status(201).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+      next(err)
     }
 }
 

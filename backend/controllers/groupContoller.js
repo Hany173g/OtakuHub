@@ -11,6 +11,10 @@ const {createBlog} = require('../service/blogService')
 
 
 
+const {createError} = require('../utils/createError')
+
+
+
 
 const sequelize = require('../config/database');
 const { where, Model } = require('sequelize')
@@ -24,7 +28,7 @@ const { where, Model } = require('sequelize')
 
 
 
-exports.getAllGroups = async(req,res) => {
+exports.getAllGroups = async(req,res,next) => {
     try{
         let groups = await Groups.findAll({
             attributes: ['id', 'name',  'privacy', 'photo', 'numberMembers', 'createdAt']
@@ -32,11 +36,11 @@ exports.getAllGroups = async(req,res) => {
         res.status(200).json({groups})
     }catch(err) 
     {
-        res.status(400).json({message:err.message})
+         next(err)
     }
 }
 
-exports.createGroup = async(req,res) => {
+exports.createGroup = async(req,res,next) => {
     try{
         let user = await isUser(req.user);
         const {groupName,description,privacy} = req.body;
@@ -50,10 +54,10 @@ exports.createGroup = async(req,res) => {
         })
         await newGroup.createGroupSetting()
         await newGroup.addUser(user, { through: { role: 'owner' } })
-    res.status(201).json({newGroup})
+        res.status(201).json({newGroup})
     }catch(err) 
     {
-        res.status(400).json({message:err.message})
+         next(err)
     }
 }
 
@@ -62,10 +66,7 @@ exports.createGroup = async(req,res) => {
 
 
 
-
-
-
-exports.joinGroup = async(req,res) =>{
+exports.joinGroup = async(req,res,next) =>{
     try{
         let user = await isUser(req.user);
         const {groupName}  = req.body;
@@ -73,13 +74,15 @@ exports.joinGroup = async(req,res) =>{
         let group = await Groups.findOne({where:{name:groupName}});
         if (!group)
         {
-            throw new Error("هذا الجروب غير موجود")
+            return  next(createError("هذا الجروب غير موجود",400))
+            
         }
     
         let checkUser = await group.getUsers({where:{id:user.id}});
         if (checkUser.length > 0)
         {
-            throw new Error("انت عضو في الجروب بلفعل")
+             return  next(createError("انت عضو في الجروب بلفعل",400))
+           
         } 
         if (group.privacy == 'public')
         {
@@ -94,14 +97,14 @@ exports.joinGroup = async(req,res) =>{
         res.status(200).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
 
 
 
-exports.addPost = async(req,res) =>{
+exports.addPost = async(req,res,next) =>{
     try{
         let user = await isUser(req.user);
         const {groupName}  = req.body;
@@ -110,19 +113,19 @@ exports.addPost = async(req,res) =>{
         let checkUser = data.checkUser;
         if (checkUser.length < 1)
         {
-            throw new Error("انت لست عضو في الجروب ")
+             return  next(createError("انت لست عضو في الجروب",400))
         } 
         let {newBlog,groupSetting} =   await createBlog(req.body,req.file,user,group.id)
-        console.log(newBlog)
+
         res.status(201).json({blogData:newBlog,groupSettingPublish:groupSetting.publish})
     }catch(err)
     {
-        res.status(200).json({message:err.message})
+       next(err)
     }
 }
 
 
-exports.getGroup = async(req,res) => {
+exports.getGroup = async(req,res,next) => {
     try{
         const {groupName} = req.body;
        let data =  await checkGroup(req.user,groupName);
@@ -163,7 +166,7 @@ exports.getGroup = async(req,res) => {
         res.status(200).json({groupData,groupSettings})
     }catch(err)
     {
-        res.status(200).json({message:err.message})
+        next(err)
     }
 }
 
@@ -185,7 +188,7 @@ exports.getGroup = async(req,res) => {
 
 
 
-exports.leaveGroup = async(req,res) => {
+exports.leaveGroup = async(req,res,next) => {
     try{
         let user = await isUser(req.user);
         const{groupName} = req.body;
@@ -194,12 +197,12 @@ exports.leaveGroup = async(req,res) => {
         let checkUser = data.checkUser;
         if (checkUser.length < 1)
         {
-            throw new Error("انت لست عضو بلفعل")
+            return  next(createError("انت لست عضو بلفعل",400))
         }
        
         if (checkUser[0].GroupMember.role === "owner")
         {
-            throw new Error("المالك لا يمكنه مغادرة الجروب. يجب نقل الملكية أولًا")
+             return next(createError("المالك لا يمكنه مغادرة الجروب. يجب نقل الملكية أولًا",400))
         }
         await group.removeUser(user)
         await group.decrement('numberMembers', { by: 1 });
@@ -207,7 +210,7 @@ exports.leaveGroup = async(req,res) => {
         res.status(200).json()
     }catch(err)
     {
-        res.status(200).json({message:err.message})
+       next(err)
     }
 }
 
@@ -216,27 +219,29 @@ exports.leaveGroup = async(req,res) => {
 
 
 
-exports.cancelJoinGroup = async(req,res) => {
+exports.cancelJoinGroup = async(req,res,next) => {
     try{
           let user = await isUser(req.user);
           const{groupName} = req.body;
            let group = await Groups.findOne({where:{name:groupName}});
             if (!group)
             {
-                throw new Error("هذا الجروب غير موجود")
+                return  next(createError("هذا الجروب غير موجود",400))
+
             }
     
         let checkUser = await group.getPendingUsers({where:{id:user.id}});
         if (checkUser.length === 0)
         {
-            throw new Error("تم الغاء الطلب بلفعل")
+             return  next(createError("تم الغاء الطلب بلفعل",400))
+          
         }
         await group.removePendingUser(user);
         
         res.status(200).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})   
+        next(err)
     }
 }
 
@@ -245,7 +250,7 @@ exports.cancelJoinGroup = async(req,res) => {
 
 
 
-exports.getPendingUsers  = async(req,res) => {
+exports.getPendingUsers  = async(req,res,next) => {
     try{
        const{groupName} = req.query;
         let data = await checkAcessMore(req.user,groupName)
@@ -268,14 +273,14 @@ exports.getPendingUsers  = async(req,res) => {
         res.status(200).json({pendingUser: formattedUsers})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
 
 
 
-exports.acceptUser = async(req,res) => {
+exports.acceptUser = async(req,res,next) => {
     try{
         const{groupName,id} = req.body;
   
@@ -289,8 +294,7 @@ exports.acceptUser = async(req,res) => {
         res.status(201).json()  
     }catch(err)
     {
-        console.log(err.message)
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -300,7 +304,7 @@ exports.acceptUser = async(req,res) => {
 
 
 
-exports.cancelUser = async(req,res) => {
+exports.cancelUser = async(req,res,next) => {
     try{
         const{groupName,id} = req.body;
 
@@ -309,19 +313,19 @@ exports.cancelUser = async(req,res) => {
         res.status(201).json();
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
 
-exports.isAccess = async(req,res) => {
+exports.isAccess = async(req,res,next) => {
     try{
         const {groupName} = req.query;
         await checkAcessMore(req.user,groupName);
         res.status(200).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -329,7 +333,7 @@ exports.isAccess = async(req,res) => {
 
 
 
-exports.getPendingUser = async(req,res) => {
+exports.getPendingUser = async(req,res,next) => {
     try{
         const{username,groupName} = req.body;
 
@@ -337,13 +341,14 @@ exports.getPendingUser = async(req,res) => {
    
         if (!username)
         {
-            throw new Error("البينات ليست كامله")
+              return  next(createError("البينات ليست كامله",400))
         }
         let user = await User.findOne({where:{username}});
-        console.log('User found:', user ? user.username : 'null');
+     
         if (!user)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
+         
         }
         let pendingUser = await group.getPendingUsers({through:{where:{userId:user.id}},   attributes: ['id', 'username', 'photo']});
         let filterPendingUser = pendingUser.map(user => {
@@ -357,13 +362,13 @@ exports.getPendingUser = async(req,res) => {
         })
         if (filterPendingUser.length < 1)
         {
-            throw new Error("هذ الشخص غير موجود")
+           return  next(createError("هذا الشخص غير موجود",400))
         }
    
         res.status(200).json(filterPendingUser) 
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -383,19 +388,19 @@ exports.getPendingUser = async(req,res) => {
 
 
 
-exports.searchMembers = async(req,res) => {
+exports.searchMembers = async(req,res,next) => {
     try{
         const{username,groupName} = req.body;
         let data = await checkAcessMore(req.user,groupName);
         if (!username)
         {
-            throw new Error("البينات ليست كامله")
+           return  next(createError("البينات ليست كامله",400))
         }
         let group = data.group;
         let user = await User.findOne({where:{username}});
         if (!user)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
         }
         let member = await group.getUsers({through:{where:{userId:user.id}},   attributes: ['id', 'username', 'photo']});
         let filterMember = member.map(user => {
@@ -411,12 +416,12 @@ exports.searchMembers = async(req,res) => {
         })
          if (filterMember.length < 1)
         {
-            throw new Error("هذ الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
         }
     res.status(200).json({filterMember})
     }catch(err)
     {
-         res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -432,37 +437,39 @@ exports.searchMembers = async(req,res) => {
 
 
 
-exports.changeRole = async(req,res) => {
+exports.changeRole = async(req,res,next) => {
     try{
           const{username,groupName,newRole} = req.body;
         let data = await checkAcessMore(req.user,groupName);
         let role = data.owner;
         if (!username  || !newRole)
         {
-            throw new Error("البينات ليست كامله")
+            return  next(createError("البينات ليست كامله",400))
         }
     
         let group = data.group;
         let user = await User.findOne({where:{username}});
         if (!user)
         {
-            throw new Error("هذا الشخص غير موجود")
+            return  next(createError("هذا الشخص غير موجود",400))
         }
         if (newRole != 'Member' && newRole != 'Admin' && newRole != 'Moderator')
         {
-            throw new Error("هذا القيمه غير موجوده")
+             return  next(createError("هذا القيمه غير موجوده",400))
+           
         }
         let userUpdate = await group.getUsers({through:{where:{userId:user.id}}});
         if (userUpdate.length < 1)
         {
-            throw new Error("هذا الشخص ليس عضوء في الجروب")
+             return  next(createError("هذا الشخص ليس عضوء في الجروب",401))
+        
         }
         checkChangeRole(newRole,role,userUpdate[0].GroupMember.role)
         await userUpdate[0].GroupMember.update({role:newRole})
         res.status(200).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -472,12 +479,12 @@ exports.changeRole = async(req,res) => {
 
 
 
-exports.kickUser = async(req,res) => {
+exports.kickUser = async(req,res,next) => {
     try{
         const {username,groupName} = req.body;
         if (!username || !groupName)
         {
-            throw new Error("البينات ليست كامله")
+          return  next(createError("البينات ليست كامله",400))
         }
         let data = await checkAcessMore(req.user,groupName);
         let group = data.group;
@@ -486,12 +493,13 @@ exports.kickUser = async(req,res) => {
         let user = await User.findOne({where:{username}});
         if (!user)
         {
-            throw new Error("هذا الشخص غير موجود")
+              return  next(createError("هذا الشخص غير موجود",400))
         }
         let kickUser = await group.getUsers({through:{where:{userId:user.id}}});
        if (kickUser.length < 1)
        {
-            throw new Error("هذا الشخص ليس عضو بلفعل")
+        return  next(createError("هذا الشخص ليس عضو بلفعل",400))
+        
        }
        await checkRole(kickUser[0].GroupMember.role,owner)
         await kickUser[0].GroupMember.destroy();
@@ -500,7 +508,7 @@ exports.kickUser = async(req,res) => {
         res.status(201).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -527,7 +535,7 @@ const checkUpdateGroup = (description,privacy,group) =>{
 
 
 
-exports.updateGroupData = async(req,res) => {
+exports.updateGroupData = async(req,res,next) => {
     try{
         const{groupName,description,privacy} = req.body;
         let data = await checkAcess(req.user,groupName);
@@ -547,8 +555,7 @@ exports.updateGroupData = async(req,res) => {
        res.status(200).json();
     }catch(err)
     {
-        console.log(err.message)
-        res.status(400).json({message:err.message})
+      next(err)
     }
 }
 
@@ -564,7 +571,7 @@ exports.updateGroupData = async(req,res) => {
 
 
 
-exports.deleteGroup = async(req,res) => {
+exports.deleteGroup = async(req,res,next) => {
     try{
         let {groupName} = req.body;
        let data =  await checkAcess(req.user,groupName)
@@ -573,7 +580,7 @@ exports.deleteGroup = async(req,res) => {
        res.status(201).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -584,13 +591,13 @@ exports.deleteGroup = async(req,res) => {
 
 
 
-exports.changeOwner = async(req,res) => {
+exports.changeOwner = async(req,res,next) => {
         const t = await sequelize.transaction();
     try{
         const{newOwner,groupName} = req.body;
          if (!newOwner)
         {
-            throw new Error("البينات ليست كامله")
+           return  next(createError("البينات ليست كامله",400))
         }
         let data =  await checkAcess(req.user,groupName)
         let owner = data.owner;
@@ -598,7 +605,8 @@ exports.changeOwner = async(req,res) => {
         let checkUserGroup = await group.getUsers({through:{where:{userId:newOwner}}})
         if (checkUserGroup.length < 1)
         {
-            throw new Error("هذا الشخص ليس عضو في الجروب")
+            return  next(createError("هذا الشخص ليس عضو في الجروب",400))
+        
         }
      
         await owner[0].GroupMember.update({role:"member"},{transaction:t});
@@ -611,7 +619,7 @@ exports.changeOwner = async(req,res) => {
     }catch(err)
     {
         await t.rollback(); 
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -621,17 +629,17 @@ exports.changeOwner = async(req,res) => {
 
 
 
-exports.getGroupLogger = async(req,res) => {
+exports.getGroupLogger = async(req,res,next) => {
     try{
         const {status} = req.params;
         const{groupName} = req.body;
         console.log(status)
         if (!status)
         {
-            throw new Error("البينات ليست كامله")
+             return  next(createError("البينات ليست كامله",400))
         }
         else if (!["join", "leave", "newOwner", "kick"].includes(status)) {
-            throw new Error("هذا القيمه غير موجوده")
+            return  next(createError("هذا القيمه غير موجوده",400))
         }
          let data =  await checkAcessMore(req.user,groupName)
          let group = data.group;
@@ -642,24 +650,24 @@ exports.getGroupLogger = async(req,res) => {
          res.status(200).json({logger,users})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
 
 
-exports.getHistoryDelete = async(req,res) => {
+exports.getHistoryDelete = async(req,res,next) => {
     try{
         const {service} = req.params;
         const {groupName} = req.body;
         if (!service ||!groupName ||!['posts','comments'].includes(service))
         {
-            throw new Error("البينات ليست كامله")
+             return  next(createError("البينات ليست كامله",400))
         }
         let data =  await checkAcessMore(req.user,groupName)
         let group = data.group
         
-        // Map frontend service names to database service names
+       
         const serviceMapping = {
           'posts': 'blog',
           'comments': 'comment'
@@ -671,18 +679,18 @@ exports.getHistoryDelete = async(req,res) => {
         res.status(200).json({historyDelete})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
 
 
-exports.getReportsGroup = async(req,res) => {
+exports.getReportsGroup = async(req,res,next) => {
     try{
         const {groupName,service} = req.body;
         if (!["blog","comment"].includes(service))
         {
-            throw new Error("هذا القيمه غير موجوده")
+             return  next(createError("هذا القيمه غير موجوده",400))
         }
         let data =  await checkAcessMore(req.user,groupName)
         let group = data.group
@@ -710,7 +718,7 @@ exports.getReportsGroup = async(req,res) => {
         res.status(200).json({groupReports})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -723,7 +731,7 @@ const checkUpdateGroupSettingsData = async(publish,allowReports,groupSettings) =
   
   if (typeof publish !== "boolean"  || typeof allowReports !== "boolean")
   {
-    throw new Error("البينات غير صحيحه")
+     return  next(createError("البينات غير صحيحه",400))
   }
   return {publish,allowReports}
 }
@@ -731,7 +739,7 @@ const checkUpdateGroupSettingsData = async(publish,allowReports,groupSettings) =
 
 
 
-exports.updateGroupSettings = async(req,res) => {
+exports.updateGroupSettings = async(req,res,next) => {
     try{
         const {groupName,publish,allowReports} = req.body;
         let {group} = await checkAcessMore(req.user,groupName)   
@@ -746,11 +754,11 @@ exports.updateGroupSettings = async(req,res) => {
         res.status(201).json(newSettings)
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
-exports.getBlogsPenning = async(req,res) => {
+exports.getBlogsPenning = async(req,res,next) => {
     try{
         const{groupName} = req.body;
         let {group} = await checkAcessMore(req.user,groupName)   
@@ -761,7 +769,7 @@ exports.getBlogsPenning = async(req,res) => {
         res.status(200).json({blogs})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -770,7 +778,7 @@ exports.getBlogsPenning = async(req,res) => {
 
 
 
-exports.acceptBlogPenned = async(req,res) => {
+exports.acceptBlogPenned = async(req,res,next) => {
     try{
         const {groupName,blogId} = req.body;
       
@@ -779,12 +787,12 @@ exports.acceptBlogPenned = async(req,res) => {
         res.status(200).json({message: 'تم قبول المنشور بنجاح'})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
 
-exports.cancelBlogPenned = async(req,res) => {
+exports.cancelBlogPenned = async(req,res,next) => {
     try{
         const {groupName,blogId} = req.body;
           await checkPenningBlogData(req.user,groupName,blogId)
@@ -792,14 +800,14 @@ exports.cancelBlogPenned = async(req,res) => {
         let blog = await Blogs.findByPk(blogId)
         if (!blog)
         {
-            throw new Error("هذا المقاله غير موجوده")
+              return  next(createError("هذا المقاله غير موجوده",400))
         }
 
         await blog.destroy();
         res.status(200).json({message: 'تم رفض المنشور بنجاح'})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 

@@ -10,7 +10,8 @@ const checkGroupStats = async(checkBlog,userId) => {
             let checkUser = await group.getUsers({where:{id:userId}})
         if (group.privacy === 'private' && checkUser.length < 1)
             {
-                throw new Error("هذا الجروب خاص")
+                return  next(createError("هذا الجروب خاص",401))
+               
             }
 }
 
@@ -46,7 +47,8 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
          secondaryAction = await dislike.findOne({where:{userId:user.id,[idColumn]:id}}) // dislike
         if (primaryAction)
         {
-            throw new Error("لقد قمت بلفعل بوضع اعجاب")
+           return  next(createError("لقد قمت بلفعل بوضع اعجاب",400))
+     
         }        
     }
     else {
@@ -55,7 +57,8 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
          
         if (primaryAction)
         {
-            throw new Error("لقد قمت بلفعل بوضع  عدم اعجاب")
+                return  next(createError("لقد قمت بلفعل بوضع  عدم اعجاب",400))
+     
         }   
     }
         
@@ -81,7 +84,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                     let profile = await Profile.findByPk(userId)
                     if (!profile)
                     {
-                        throw new Error("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب")
+                          return  next(createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404))
                     }
                     let content = `قام ${user.username}  بي الأعجاب لمنشورك`;
 
@@ -177,7 +180,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                      let profile = await Profile.findByPk(userId)
                     if (!profile)
                     {
-                        throw new Error("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب")
+                          return  next(createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404))
                     }
                     await profile.decrement("likes",{by:1})
                 }

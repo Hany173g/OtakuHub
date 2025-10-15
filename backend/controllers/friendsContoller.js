@@ -64,7 +64,7 @@ exports.getFriends = async(user,onlineFriends) => {
         return sortedFriends;
     }catch(err)
     {
-        throw new Error(err.message)
+        next(err)
     }
 }
 

@@ -50,6 +50,6 @@ module.exports = (io,socket) => {
         })
     }catch(err)
     {
-        throw new Error(err.message)
+       next(err)
     }
 }

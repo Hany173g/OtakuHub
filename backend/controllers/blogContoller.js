@@ -1,5 +1,6 @@
 const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile} = require('../models/Relationships')
 
+const {createError} = require('../utils/createError')
 
 
 const {isUser} =require('../utils/isUser')
@@ -16,15 +17,15 @@ const sequelize = require('../config/database')
 
 // create New Blog and check data and upload photo (optional)
 
-exports.createBlog = async(req,res) => {
+exports.createBlog = async(req,res,next) => {
     try {
-    let user =   await  isUser(req.user)
+    let user =   await  isUser(req.user,next)
    let {newBlog} =  await createBlog(req.body,req.file,user)
 
-    res.status(200).json({blogData:newBlog})
+    res.status(201).json({blogData:newBlog})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 
@@ -36,19 +37,20 @@ exports.createBlog = async(req,res) => {
 
 
 
-exports.removeLike = async(req,res) => {
+exports.removeLike = async(req,res,next) => {
     try{
-        console.log("Test remove")
+ 
         let user =   await  isUser(req.user)
         const {blogId} = req.params;
-        let blog = await checkBlog(blogId);
+        let blog = await checkBlog(blogId,next);
            let isLike = await likesBlogs.findOne({where:{
             userId:user.id,
             blogId
         }})
         if (!isLike)
         {
-            throw new Error("انت لم تقم بلأعجاب ")
+             return  next(createError("انت لم تقم بلأعجاب",400))
+         
         }
         
         let blogLikes = await blog.getBlogStat();
@@ -59,33 +61,33 @@ exports.removeLike = async(req,res) => {
         {
             await profile.decrement("likes",{by:1})
         }
-        res.status(201).json()
+        res.status(204).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+         next(err)
     }
 }
 
-exports.removeDislike = async(req,res) => {
+exports.removeDislike = async(req,res,next) => {
     try{
         let user =   await  isUser(req.user)
         const {blogId} = req.params;
-        let blog = await checkBlog(blogId);
+        let blog = await checkBlog(blogId,next);
            let isDislike = await dislikesBlogs.findOne({where:{
             userId:user.id,
             blogId
         }})
         if (!isDislike)
         {
-            throw new Error("انت لم تقم بعدم الأعجاب")
+             return  next(createError("انت لم تقم بعدم الأعجاب",400))    
         }
         let blogLikes = await blog.getBlogStat();
          await isDislike.destroy();
         await blogLikes.decrement('dislikeNumber', { by: 1 });
-        res.status(201).json()
+        res.status(204).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+          next(err)
     }
 }
 
@@ -93,13 +95,14 @@ exports.removeDislike = async(req,res) => {
 
 
 
-exports.addComment = async(req,res) => {
+exports.addComment = async(req,res,next) => {
     try{
-         let user =   await  isUser(req.user)
+         let user =   await  isUser(req.user,next)
          const{content} = req.body; 
          if (!content)
          {
-            throw new Error("لأ يوجد محتوي في التعليق")
+             return  next(createError("لأ يوجد محتوي في التعليق",400))
+           
          }
          const {blogId} = req.params;
          let blog = await checkBlog(blogId);
@@ -110,7 +113,7 @@ exports.addComment = async(req,res) => {
         }
          await BlogStats.increment('commentsNumber', { by: 1 });
          let isOwner = newComment.userId === req.user.id;   
-         res.status(200).json({
+         res.status(201).json({
              newComment: {
                  ...newComment.toJSON(),
                  userData: {
@@ -123,7 +126,7 @@ exports.addComment = async(req,res) => {
          })
         }catch(err)
     {
-        res.status(400).json({message:err.message})
+          next(err)
     }
 }
 
@@ -136,7 +139,7 @@ exports.addComment = async(req,res) => {
 
 
 
-exports.doAction = async(req,res) => {
+exports.doAction = async(req,res,next) => {
     try{
        const {action,service,id} = req.body;
        checkAction(action,service) 
@@ -154,8 +157,7 @@ exports.doAction = async(req,res) => {
        res.status(201).json()
     }catch(err)
     {
-        console.log(err.message)
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -163,7 +165,7 @@ exports.doAction = async(req,res) => {
 
 
 
-exports.getBlogs = async(req,res) => {
+exports.getBlogs = async(req,res,next) => {
     try {
 
     let allBlogs = await getBlogs(req,res,'home',null)
@@ -171,7 +173,7 @@ exports.getBlogs = async(req,res) => {
     res.status(200).json(allBlogs)
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+        next(err)
     }
 }
 
@@ -198,14 +200,15 @@ const createHistoryGroup = async(blog,user,group,service) => {
 
 
 
-exports.deleteBlog = async(req,res) => {
+exports.deleteBlog = async(req,res,next) => {
     try{
            let user =   await  isUser(req.user)
            const{blogId} = req.body;          
            let blog = await checkBlog(blogId);
            if (!blog)
            {
-            throw new Error("هذا المقاله غير موجده")
+              return  next(createError("هذا المقاله غير موجده",400))
+            
            }
        
            let {checkRole,group} = await checkGroupRole(blog,user,blog.userId)
@@ -215,16 +218,16 @@ exports.deleteBlog = async(req,res) => {
            }
            else if (blog.userId != user.id)
            {
-             throw new Error("يجب ان تكون انت صاحب المقال لتسطيع حذفه")
+              return  next(createError("يجب ان تكون انت صاحب المقال لتسطيع حذفه",400))
+        
            }
         
           
           let blogDelete =  await blog.destroy();
-          res.status(200).json({message:"تم حذف المقاله"}) 
+          res.status(204).json() 
     }catch(err)
     {
-        console.log(err.message)
-        res.status(400).json({message:err.message})
+          next(err)
     }
 }
 
@@ -235,7 +238,7 @@ exports.deleteBlog = async(req,res) => {
 
 
 
-exports.deleteComment = async(req,res) => {
+exports.deleteComment = async(req,res,next) => {
     try{
          let user =   await  isUser(req.user)
          const {commentId} = req.body;
@@ -243,7 +246,7 @@ exports.deleteComment = async(req,res) => {
            
          if (!comment)
             {
-                throw new Error("هذا التعليق غير موجود")    
+                return  next(createError("هذا التعليق غير موجود",400))   
             } 
         let blog = await Blogs.findOne({ where: { id: comment.blogId } });
             let {checkRole,group} = await checkGroupRole(blog.groupId,user)
@@ -252,17 +255,17 @@ exports.deleteComment = async(req,res) => {
              await createHistoryGroup(blog,user,group,"comment")
            }
             else if (comment.userId !== user.id) {
-                throw new Error("ليس لديك صلاحية لحذف هذا التعليق");
+                return  next(createError("ليس لديك صلاحية لحذف هذا التعليق",400))   
             }       
       
         let blogStat = await blog.getBlogStat();
 
         await blogStat.decrement('commentsNumber',{by:1})
         await comment.destroy();
-        res.status(200).json({message:"تم حذف التعليق"})
+        res.status(201).json()
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+         next(err)
     }
 }
 
@@ -270,7 +273,7 @@ exports.deleteComment = async(req,res) => {
 
 
 
-exports.reportService = async(req,res) => {
+exports.reportService = async(req,res,next) => {
     try{  
         let user =   await  isUser(req.user)
         const {service,serviceId,content} = req.body;
@@ -280,7 +283,7 @@ exports.reportService = async(req,res) => {
         {
               if (!groupSettings.allowReports)
                 {
-                    throw new Error("قام المشرف بمن البلأغات")
+                    return next(createError("قام المشرف بمن البلأغات",400))
                 }
         }
       
@@ -290,7 +293,7 @@ exports.reportService = async(req,res) => {
         res.status(201).json({groupSettingsReport:groupSettings.allowReports});
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+          next(err)
     }
 }
 

@@ -64,8 +64,8 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
   }, [blog])
 
   const showError = (err, fallback = 'تعذّر تنفيذ العملية') => {
-    const status = err?.response?.status
-    const msg = err?.response?.data?.message || (status === 400 || status === 401 ? 'يُرجى تسجيل الدخول للتفاعل' : fallback)
+    // الـ API interceptor بيرجع error.message مباشرة
+    const msg = err.message || fallback
     setSnack({ open: true, message: msg, severity: 'error' })
   }
 
@@ -285,7 +285,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
       console.error('Error reporting blog:', err)
       setSnack({ 
         open: true, 
-        message: err.response?.data?.message || 'فشل في إرسال البلاغ', 
+        message: err.message || 'فشل في إرسال البلاغ', 
         severity: 'error' 
       })
     } finally {

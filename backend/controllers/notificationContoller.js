@@ -22,7 +22,7 @@ exports.getFriendsRequest = async(req,res) => {
         res.status(200).json({allUsersReceived})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+      next(err)
     }
 }
 
@@ -38,7 +38,7 @@ exports.getNotication = async(req,res) => {
         res.status(200).json({userNottication})
     }catch(err)
     {
-        res.status(400).json({message:err.message})
+       next(err)
     }
 }
 

@@ -16,21 +16,24 @@ const{isUser} = require('./isUser')
 const checkData= ({content,title}) => {
     if (!content||!title)
     {
-        throw new Error("البينات ليست كامله")
+        return  next(createError("البينات ليست كامله",400))
+
     }
     return {content,title}
 }
 
 
 
-const checkPhoto = (file) => {
+const checkPhoto = (file,next) => {
     const allowedTypes = ['image/jpeg', 'image/png'];
     if (file.size > 3000000)
     {
-        throw new Error("يجب ان يكون الحجم اقصي شي 3 ميجا")
+        return next(createError("يجب ان يكون الحجم اقصي شي 3 ميجا",400))
+    
     }
     else  if (!allowedTypes.includes(file.mimetype)) {
-        throw new Error("يجب ان يكون الصوره امتداد jpeg or png");
+        return next(createError("يجب ان يكون الصوره امتداد jpeg or png",400))
+       
     }
     
 }
@@ -39,38 +42,42 @@ const checkPhoto = (file) => {
 const checkGroupData = (groupName,description,photo,privacy,group,bool,bool2) => {
     if (!groupName)
     {
-        throw new Error("يجب وضع اسم لي الجروب")
+         return next(createError("يجب وضع اسم لي الجروب",400))
     }
     else if(!description)
     {
-        throw new Error("يجب وضع وصف لي الجروب")
+          return next(createError("يجب وضع وصف لي الجروب",400))
+       
     }
     else if (bool)
     {
          if(!photo)
         {
-            throw new Error("يجب عليك وضع صوره لي الجروب")
+            return next(createError("يجب عليك وضع صوره لي الجروب",400))
+         
         }
     }
     if (groupName.length < 4 || groupName.length > 19)
     {
-        throw new Error("يجب ان يكون الجروب اكبر من 3 احرف واقل من 20")
+          return next(createError("يجب ان يكون الجروب اكبر من 3 احرف واقل من 20",400))
+       
     }
     else if (description.length < 10 || description.length > 999)
     {
-        throw new Error("يجب ان يكون الوصف اكبر من 10 حروف واصغر من 1000")
+         return next(createError("يجب ان يكون الوصف اكبر من 10 حروف واصغر من 1000",400))
     }
     if (bool2)
     {
          if (group)
         {
-            throw new Error("هذا الأسم مستخدم من قبل")
+             return next(createError("هذا الأسم مستخدم من قبل",400))
         }
     }
    
     if (privacy != 'private' && privacy != 'public')
     {
-        throw new Error("هذا القيم غير موجوده")
+          return next(createError("هذا القيم غير موجوده",400))
+      
     }
     if (bool)
     {
@@ -86,7 +93,7 @@ const checkGroup = async(userData,groupName) => {
      let group = await Groups.findOne({where:{name:groupName}});
         if (!group)
         {
-            throw new Error("هذا الجروب غير موجود")
+             return  next(createError("هذا الجروب غير موجود",400))
         }
         let checkUser = [];
         let user = null;
@@ -107,11 +114,12 @@ const checkGroup = async(userData,groupName) => {
 
 // check if blog is find
 
-const checkBlog = async(id) => {
+const checkBlog = async(id,next) => {
         let blog = await Blogs.findByPk(id);
            if (!blog)
            {
-            throw new Error("هذا المقال غير موجود او تم حذفه")
+                return  next(createError("هذا المقال غير موجود او تم حذفه",400))
+        
            }
            return blog;
         }
@@ -120,11 +128,11 @@ const checkBlog = async(id) => {
 const checkAction = (action ,service) => {
     if (service != 'comment' && service != 'blogs')
     {
-        throw new Error('يجب ان تختار حدث معين("comment or blogs")')
+        return  next(createError('يجب ان تختار حدث معين("comment or blogs")',400))
     }
     if (action != 'like' && action != 'dislike')
     {
-        throw new Error('يجب ان تختار حدث معين("like or dislike")')
+         return  next(createError('يجب ان تختار حدث معين("like or dislike")',400))
     }
 }
 
@@ -137,11 +145,11 @@ const checkChangeRole = (role,owner,userRole) => {
  
     if (role ==='Admin' && requesterRole !== "owner")
     {
-        throw new Error("انت لأ تملك الصلأحيه الكافيه")
+           return  next(createError("انت لأ تملك الصلأحيه الكافيه",401))
     } 
     else if (requesterRole === userRole)
     {
-        throw new Error("انت لأ تملك الصلأحيه الكافيه")
+        return  next(createError("انت لأ تملك الصلأحيه الكافيه",401))
     }
 }
 
@@ -153,7 +161,7 @@ const checkComment = async(id) => {
     let comment = await commentsBlogs.findByPk(id)
     if (!comment)
     {
-        throw new Error("هذا التعليق غير موجود او تم حذفه")
+        return  next(createError("هذا التعليق غير موجود او تم حذفه",400))
     }
     return comment;
 }
@@ -178,18 +186,18 @@ const checkDataMessage = async(username,content,user) =>
 
             if (!friend)
             {
-                throw new Error("هذا الشخص غير موجود")
+                return  next(createError("هذا الشخص غير موجود",400))
             }
             if (content) {
                 if (content.length  < 1)
                 {
-                    throw new Error("لأ تستطيع ارسال رساله بدون محتوي")
+                    return  next(createError("لأ تستطيع ارسال رساله بدون محتوي",400))
                 }
                 
             }
             else
             {
-                throw new Error("البينات ليست كامله")
+                 return  next(createError("البينات ليست كامله",400))
             }
             let isFriend = await user.getFriends({where:{
                 [Op.or]:[
@@ -199,7 +207,7 @@ const checkDataMessage = async(username,content,user) =>
          }});
          if (!isFriend)
         {
-            throw new Error("انتم لستم اصدقاء")
+             return  next(createError("انتم لستم اصدقاء",400))
         }
     return friend;
 }
@@ -216,7 +224,8 @@ const checkFriendRequestData = async(userId,friendId) => {
         ])
     if (!user || !friend)
     {
-        throw new Error("هذا المستخدم غير موجود")
+         return  next(createError("هذا المستخدم غير موجود",400))
+
     }
   
 }
@@ -229,15 +238,15 @@ const checkRole = async(role,owner) => {
     let userRole = owner[0].GroupMember.role;
     if (role === userRole)
     {
-        throw new Error("انتم الأثنين نفس الصلأحيه")
+        return  next(createError("انتم الأثنين نفس الصلأحيه",400))
     }
     else if (role === "owner" && userRole === "Admin")
     {
-        throw new Error("لأ تملك الصلأحيات الكافيه")
+         return  next(createError("لأ تملك الصلأحيات الكافيه",400))
     }
     else if (role === "Admin" && userRole === "Admin")
     {
-        throw new Error("لأ تملك اللصلأحيات الكافيه")
+         return  next(createError("لأ تملك اللصلأحيات الكافيه",400))
     }
 }
 
@@ -250,19 +259,19 @@ const checkAcessMore = async(data,groupName) =>
       let user = await isUser(data);
       if (!groupName)
       {
-        throw new Error("البينات ليست كامله")
+          return  next(createError("البينات ليست كامله",400))
       }
         let group = await Groups.findOne({where:{name:groupName}});
         if (!group)
         {
-                throw new Error("هذا الجروب غير موجود")
+              return  next(createError("هذا الجروب غير موجود",400))
         }
         const owner = await group.getUsers({ 
             through: { where: { role: ['owner','Admin'] ,userId:user.id} } 
         });
         if (owner.length < 1)
         {
-            throw new Error("لأ تملك صلأحيات لوصل لي هذا البينات")
+            return  next(createError("لأ تملك صلأحيات لوصل لي هذا البينات",401))
         }
         return {group,user,owner};
 }
@@ -273,7 +282,8 @@ const userAction = async(groupName,id,data) =>
 {
        if (!id)
         {
-            throw new Error("البينات ليست كامله")
+             return  next(createError("البينات ليست كامله",400))
+            
         }
        let {group} =  await checkAcessMore(data,groupName)
    
@@ -282,7 +292,7 @@ const userAction = async(groupName,id,data) =>
         
         if (user.length < 1)
         {
-            throw new Error("هذا الشخص غير موجود")
+             return  next(createError("هذا الشخص غير موجود",400))
         }
         await group.removePendingUser(user);
         return {group,user}
@@ -301,7 +311,7 @@ const checkGroupRole = async(blog,user,userId) => {
               let group = await Groups.findByPk(groupId);
               if (!group)
                 {
-                    throw new Error("هذا الجروب الجروب غير موجود")
+                     return  next(createError("هذا الجروب الجروب غير موجود",400))
                 }  
               let member = await group.getUsers({through:{where:{userId:user.id, role: { [Op.in]: ['Admin', 'owner', 'Moderator'] } }}})
               let isOwnerBlog = blog.userId === userId;  
@@ -311,7 +321,8 @@ const checkGroupRole = async(blog,user,userId) => {
                 } 
             else
                 {
-                    throw new Error("ليس لديك الصلأحيات")
+                     return  next(createError("ليس لديك الصلأحيات",401))
+                    
                 }
                  return {checkRole,group};
            }
@@ -326,24 +337,26 @@ const checkGroupRole = async(blog,user,userId) => {
 
 
 
+
+
 const checkAcess = async(data,groupName) =>
 {
       let user = await isUser(data);
       if (!groupName)
       {
-        throw new Error("البينات ليست كامله")
+        return  next(createError("البينات ليست كامله",400))
       }
         let group = await Groups.findOne({where:{name:groupName}});
         if (!group)
         {
-                throw new Error("هذا الجروب غير موجود")
+               return  next(createError("هذا الجروب غير موجود",400))
         }
         const owner = await group.getUsers({ 
             through: { where: { role: 'owner' ,userId:user.id} } 
         });
         if (owner.length < 1)
         {
-            throw new Error("لأ تملك صلأحيات لوصل لي هذا البينات")
+            return  next(createError("لأ تملك صلأحيات لوصل لي هذا البينات",401))
         }
         return {group,user,owner};
 }
@@ -356,15 +369,17 @@ const checkAcess = async(data,groupName) =>
 const addLogger = async(group,userId,status) => {
     if (!group || !userId)
     {
-        throw new Error("البينات ليست كامله")
+           return  next(createError("البينات ليست كامله",400))
+   
     }
     if (!["join", "leave", "newOwner", "kick"].includes(status)) {
-        throw new Error("هذا القيمه غير موجوده")
+        return  next(createError("هذا القيمه غير موجوده",400))
+      
     }
     let user = await User.findByPk(userId)
     if (!user)
     {
-        throw new Error("المستخدم غير موجود")
+         return  next(createError("المستخدم غير موجود",400))    
     }
     await group.createLoggerGroup({userId,status,photo:user.photo,username:user.username})
 }
@@ -382,65 +397,47 @@ const addLogger = async(group,userId,status) => {
 
 
 
-
-
-const checkReportData = async(service,serviceId,user,content) =>
-{
+const checkReportData = async (service, serviceId, user, content, next) => {
     let group = null;
-     let serviceData ;
-        if (!["blog","comment"].includes(service) || !serviceId)
-        {
-            throw new Error("البينات غير صحيحه")
+    let serviceData;
+    if (!["blog", "comment"].includes(service) || !serviceId) {
+        return next(createError("البينات غير صحيحه", 400));
+    } else if (content.length < 10 || content.length > 150) {
+        return next(createError("يجب ان يكون حجم البلأغ اكبر من 10 احرف واقل او يساوي من 150 حرف", 400));
+    }
+    if (service === 'blog') {
+        serviceData = await Blogs.findByPk(serviceId);
+    } else {
+        serviceData = await commentsBlogs.findByPk(serviceId);
+    }
+    if (!serviceData) {
+        return next(createError("هذا العنصر غير موجود", 404));
+    } else if (serviceData.userId == user.id) {
+        return next(createError("لأ يمكنك الابلاغ عن شي انت قمت بنشره", 400));
+    }
+    if (serviceData.groupId) {
+        group = await Groups.findByPk(serviceData.groupId);
+        if (!group) {
+            return next(createError("هذا الجروب غير موجود", 404));
         }
-        else if(content.length < 10 || content.length > 150)
-       {
-        throw new Error("يجب ان يكون حجم البلأغ اكبر من 10 احرف واقل او يساوي من 150 حرف")
-       }
-        if (service === 'blog')
-        {
-            serviceData = await Blogs.findByPk(serviceId)
-        }
-        else
-        {
-            serviceData = await commentsBlogs.findByPk(serviceId)
-        }
-         if (!serviceData)
-        {
-            throw new Error("هذا لعنصر غير موجود")
-        }
-        else if (serviceData.userId == user.id)
-        {
-            throw new Error("لأ يمكنك ابلغ عن شي انت قمت بنشره")
-        }
-        if (serviceData.groupId)
-        {
-             group = await Groups.findByPk(serviceData.groupId);
-            if (!group)
-            {
-                throw new Error("هذا الجروب غير موجود")
+    } else if (serviceData.groupId === undefined) {
+        let blog = await Blogs.findByPk(serviceData.blogId);
+        if (blog.groupId) {
+            group = await Groups.findByPk(blog.groupId);
+            if (!group) {
+                return next(createError("هذا الجروب غير موجود", 404));
             }
         }
-        else if(serviceData.groupId === undefined)
-        {
-            let blog = await Blogs.findByPk(serviceData.blogId);
-            if (blog.groupId)
-            {
-                group = await Groups.findByPk(blog.groupId);
-                if (!group)
-                {
-                    throw new Error("هذا الجروب غير موجود")
-                }
-            }   
-        }
-    return {serviceData,group};
-}
+    }
+    return { serviceData, group };
+};
 
 
 
 
 
 const checkStatsUsers = async(users,user) => {
-    try{
+ 
         const usersIds = users.map(user => user.id)
         let[userFriends,requestFriends,recivceFriend] = await Promise.all([
             friends.findAll({where:{[Op.or]:[{userId:usersIds},{friendId:usersIds}]}}),
@@ -477,10 +474,7 @@ const checkStatsUsers = async(users,user) => {
             return userEdit
         })
       return result;
-    }catch(err)
-     {
-        throw new Error(err.message)
-    }
+   
 }
 
 
@@ -488,7 +482,7 @@ const checkStatsUsers = async(users,user) => {
 
 
 const checkGroupStats = async(GroupsData,user) => {
-    try{
+   
         const groupsIds = GroupsData.map(group => group.id)
         const userGroups = await Groups.findAll({where:{id:groupsIds}})
         let result = [];
@@ -508,33 +502,38 @@ const checkGroupStats = async(GroupsData,user) => {
            result.push(groupPlain)
         }
         return result
-    }catch(err)
-    {
-        throw new Error(err.message)
-    }
+
 }
 
 
 
 
 const checkBlogsStats = async(blogs) => {
-    try{
+    
         let groupsIds = blogs.map(blog => blog.groupId).filter(Boolean)
         let groups = await Groups.findAll({where:{id:groupsIds,privacy:'public'}})
      
         let result = blogs.map(blog => {
-     
-          let checkPriacy = groups.find(group => group.id === blog.groupId)
-          if (checkPriacy)
+            if (blog.groupId)
             {
-                return checkPriacy
-            }  
+                   let checkPriacy = groups.find(group => group.id === blog.groupId)
+                    if (checkPriacy)
+                    {
+                        return blog
+                    }
+                    else
+                    {
+                        return;
+                    }
+            }
+            return blog
+       
         })
+
+
         return result
-    }catch(err)
-    {
-        throw new Error(err.message)        
-    }
+    
+    
 }
 
 
@@ -543,13 +542,13 @@ const checkBlogsStats = async(blogs) => {
 const checkPenningBlogData = async(data,groupName,blogId) => {
       if (!blogId)
         {
-            throw new Error("البينات ليست كامله")
+              return  next(createError("البينات ليست كامله",400))
         }
      await checkAcessMore(data,groupName)  
         let blogPenned = await penningBlogs.findOne({where:{blogId}})
         if (!blogPenned)
         {
-            throw new Error("هذا المقاله غير موجوده")
+             return  next(createError("هذا المقاله غير موجوده",400))
         } 
         await blogPenned.destroy()
 }
@@ -574,7 +573,7 @@ const checkIsBlock = async(user,friend) => {
             }})
      if (block)
      {
-        throw new Error("هذا الشخص غير موجود")
+         return  next(createError("هذا الشخص غير موجود",400))
      }
 }
 

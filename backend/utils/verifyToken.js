@@ -11,13 +11,14 @@ require("dotenv").config();
 
 module.exports =  (token) => {
     if (!token) {
-        throw new Error("التوكن غير موجود");
+         return  next(createError("التوكن غير موجود",400))
+
     }
 
     try {
         let decoded = jwt.verify(token, process.env.JWT_SECERT);
         return decoded; 
     } catch (err) {
-        throw new Error("التوكن غير صالح أو انتهت صلاحيته");
+        next(err)
     }
 }

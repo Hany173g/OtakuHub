@@ -20,7 +20,8 @@ export default function Login() {
       storage.user = data.user // حفظ بيانات المستخدم
       navigate('/')
     } catch (err) {
-      setError(err?.response?.data?.message || 'حدث خطأ ما')
+      // الـ API interceptor بيرجع error.message مباشرة
+      setError(err.message || 'حدث خطأ ما')
     } finally {
       setLoading(false)
     }
