@@ -1,4 +1,4 @@
-const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile} = require('../models/Relationships')
+const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile, commentsBlogs} = require('../models/Relationships')
 
 const {createError} = require('../utils/createError')
 
@@ -40,7 +40,7 @@ exports.createBlog = async(req,res,next) => {
 exports.removeLike = async(req,res,next) => {
     try{
  
-        let user =   await  isUser(req.user)
+        let user =   await  isUser(req.user,next)
         const {blogId} = req.params;
         let blog = await checkBlog(blogId,next);
            let isLike = await likesBlogs.findOne({where:{
@@ -49,7 +49,7 @@ exports.removeLike = async(req,res,next) => {
         }})
         if (!isLike)
         {
-             return  next(createError("انت لم تقم بلأعجاب",400))
+           throw createError("انت لم تقم بلأعجاب",400)
          
         }
         
@@ -70,7 +70,7 @@ exports.removeLike = async(req,res,next) => {
 
 exports.removeDislike = async(req,res,next) => {
     try{
-        let user =   await  isUser(req.user)
+        let user =   await  isUser(req.user,next)
         const {blogId} = req.params;
         let blog = await checkBlog(blogId,next);
            let isDislike = await dislikesBlogs.findOne({where:{
@@ -79,7 +79,7 @@ exports.removeDislike = async(req,res,next) => {
         }})
         if (!isDislike)
         {
-             return  next(createError("انت لم تقم بعدم الأعجاب",400))    
+            throw createError("انت لم تقم بعدم الأعجاب",400) 
         }
         let blogLikes = await blog.getBlogStat();
          await isDislike.destroy();
@@ -101,11 +101,11 @@ exports.addComment = async(req,res,next) => {
          const{content} = req.body; 
          if (!content)
          {
-             return  next(createError("لأ يوجد محتوي في التعليق",400))
+                throw createError("لأ يوجد محتوي في التعليق",400)
            
          }
          const {blogId} = req.params;
-         let blog = await checkBlog(blogId);
+         let blog = await checkBlog(blogId,next);
          let newComment = await user.createCommentsBlog({blogId,content})
          let BlogStats = await blog.getBlogStat();
          if (!BlogStats) {
@@ -142,18 +142,18 @@ exports.addComment = async(req,res,next) => {
 exports.doAction = async(req,res,next) => {
     try{
        const {action,service,id} = req.body;
-       checkAction(action,service) 
+       checkAction(action,service,next) 
        let item;
        if (service === 'blogs')
        {
-          item = await checkBlog(id);
+          item = await checkBlog(id,next);
        }
        else
        {
-        item = await checkComment(id);
+        item = await checkComment(id,next);
        }
-       let user =   await  isUser(req.user)
-       await Like_Dislike(user,id,service,item,action)
+       let user =   await  isUser(req.user,next)
+       await Like_Dislike(user,id,service,item,action,null ,next)
        res.status(201).json()
     }catch(err)
     {
@@ -202,23 +202,23 @@ const createHistoryGroup = async(blog,user,group,service) => {
 
 exports.deleteBlog = async(req,res,next) => {
     try{
-           let user =   await  isUser(req.user)
+           let user =   await  isUser(req.user,next)
            const{blogId} = req.body;          
-           let blog = await checkBlog(blogId);
+           let blog = await checkBlog(blogId,next);
            if (!blog)
            {
-              return  next(createError("هذا المقاله غير موجده",400))
+                throw createError("هذا المقاله غير موجده",400)
             
            }
        
-           let {checkRole,group} = await checkGroupRole(blog,user,blog.userId)
+           let {checkRole,group} = await checkGroupRole(blog,user,blog.userId,next)
            if (checkRole && user.id != blog.userId)
            {
             await createHistoryGroup(blog,user,group,"blog")
            }
            else if (blog.userId != user.id)
            {
-              return  next(createError("يجب ان تكون انت صاحب المقال لتسطيع حذفه",400))
+            throw createError("يجب ان تكون انت صاحب المقال لتسطيع حذفه",400)
         
            }
         
@@ -240,13 +240,13 @@ exports.deleteBlog = async(req,res,next) => {
 
 exports.deleteComment = async(req,res,next) => {
     try{
-         let user =   await  isUser(req.user)
+         let user =   await  isUser(req.user,next)
          const {commentId} = req.body;
          let comment = await commentsBlogs.findByPk(commentId);
            
          if (!comment)
             {
-                return  next(createError("هذا التعليق غير موجود",400))   
+              throw createError("هذا التعليق غير موجود",400)
             } 
         let blog = await Blogs.findOne({ where: { id: comment.blogId } });
             let {checkRole,group} = await checkGroupRole(blog.groupId,user)
@@ -255,7 +255,7 @@ exports.deleteComment = async(req,res,next) => {
              await createHistoryGroup(blog,user,group,"comment")
            }
             else if (comment.userId !== user.id) {
-                return  next(createError("ليس لديك صلاحية لحذف هذا التعليق",400))   
+                throw createError("ليس لديك صلاحية لحذف هذا التعليق",400)
             }       
       
         let blogStat = await blog.getBlogStat();
@@ -275,15 +275,15 @@ exports.deleteComment = async(req,res,next) => {
 
 exports.reportService = async(req,res,next) => {
     try{  
-        let user =   await  isUser(req.user)
+        let user =   await  isUser(req.user,next)
         const {service,serviceId,content} = req.body;
-        let {serviceData,group} = await checkReportData(service,serviceId,user,content)
+        let {serviceData,group} = await checkReportData(service,serviceId,user,content,next)
         let groupSettings = await group.getGroupSetting();
         if (group)
         {
               if (!groupSettings.allowReports)
                 {
-                    return next(createError("قام المشرف بمن البلأغات",400))
+                    throw createError("قام المشرف بمن البلأغات",400)
                 }
         }
       

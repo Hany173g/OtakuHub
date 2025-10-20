@@ -20,6 +20,7 @@ export const SocketProvider = ({ children }) => {
   const [friendRequestStatus, setFriendRequestStatus] = useState(null)
   const [lastRequestTime, setLastRequestTime] = useState(0)
   const [isRequestPending, setIsRequestPending] = useState(false)
+  const [errorMessages, setErrorMessages] = useState([])
 
   useEffect(() => {
     if (storage.token) {
@@ -106,6 +107,21 @@ export const SocketProvider = ({ children }) => {
         }
       })
 
+      // Listen for general errors from backend
+      newSocket.on('error', (errorData) => {
+        console.error('❌ Backend error:', errorData)
+        const errorMessage = {
+          id: Date.now(),
+          message: errorData.message || 'حدث خطأ',
+          timestamp: new Date()
+        }
+        setErrorMessages(prev => [...prev, errorMessage])
+        
+        // Auto remove error after 10 seconds
+        setTimeout(() => {
+          setErrorMessages(prev => prev.filter(err => err.id !== errorMessage.id))
+        }, 10000)
+      })
 
       newSocket.on('disconnect', () => {
         console.log('Disconnected from server')
@@ -167,6 +183,14 @@ export const SocketProvider = ({ children }) => {
 
   const removeNotification = (notificationId) => {
     setNotifications(prev => prev.filter(n => n.id !== notificationId))
+  }
+
+  const removeErrorMessage = (errorId) => {
+    setErrorMessages(prev => prev.filter(err => err.id !== errorId))
+  }
+
+  const clearErrorMessages = () => {
+    setErrorMessages([])
   }
 
   const value = {

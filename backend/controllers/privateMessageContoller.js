@@ -6,6 +6,9 @@ const{checkDataMessage,checkIsBlock} = require('../utils/checkData')
 const {Op, where, Error} = require('sequelize')
 
 
+const {createError} = require('../utils/createError')
+
+
 
 
 
@@ -18,7 +21,7 @@ exports.sendMessage = async(username,content,user) => {
        let friend = await checkDataMessage(username,content,user);
         if (user.id === friend.id)
         {
-             return  next(createError("لأ يمكنك الأرسال لنفسك",400))
+         throw createError("لأ يمكنك الأرسال لنفسك",400)
         }
         await checkIsBlock(user,friend)
        await user.createSentMessage({receiveId:friend.id,content})
@@ -37,13 +40,13 @@ exports.getChat = async(req,res) => {
         const{username} = req.body;
         
         if (!username || username.trim() === '') {
-            return  next(createError("اسم المستخدم مطلوب",400))
+          throw createError("اسم المستخدم مطلوب",400)
         }
         
         let friend = await User.findOne({where:{username}})
         if (!friend)
         {
-            return  next(createError("هذا الشخص غير موجوده",400))
+            throw createError("هذا الشخص غير موجوده",400)
         }
         
    
@@ -88,11 +91,11 @@ exports.deleteMessage = async(data,messageId) => {
         let message = await privateMessage.findOne({where:{id:messageId}});
         if (!message)
         {
-               return  next(createError("هذا الرساله غير موجوده",400))
+          throw createError("هذا الرساله غير موجوده",400)
         }
         if (message.senderId != user.id)
         {
-            return  next(createError("لأ يمكن حذف رساله ليست لك",400))
+         throw createError("لأ يمكن حذف رساله ليست لك",400)
         }
         await message.update({content:"هذا الرساله تم حذفها",})
     

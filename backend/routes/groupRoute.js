@@ -63,6 +63,11 @@ router.post('/group/updateGroupData', checkSizePhoto, groupContoller.updateGroup
 router.post('/group/deleteGroup', groupContoller.deleteGroup);
 
 
+
+
+router.post('/group/searchUserLogger',groupContoller.searchLogger)
+
+
 router.post('/group/changeOwner',groupContoller.changeOwner)
 
 router.post('/group/changeRole',groupContoller.changeRole)
@@ -85,5 +90,29 @@ router.post('/group/getBlogsPenning',groupContoller.getBlogsPenning)
 
 router.post('/group/acceptBlogPenned',groupContoller.acceptBlogPenned)
 router.post('/group/cancelBlogPenned',groupContoller.cancelBlogPenned)
+
+
+
+
+router.post('/group/addNewWarring',groupContoller.addWarring)
+
+
+
+
+
+
+
+router.get('/group/getBannedUser',groupContoller.getBannedUsers)
+
+
+
+
+
+
+
+router.post('/group/removeBannedUser',groupContoller.removeBannedUser)
+
+
+
 
 module.exports = router

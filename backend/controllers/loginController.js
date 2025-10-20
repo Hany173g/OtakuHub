@@ -26,7 +26,7 @@ exports.login = async(req,res,next) => {
         let user = await  User.findOne({where:{email}});
         if (!user)
         {
-            return next(createError("هذا المستخدم غير موجود",401))
+          throw createError("هذا المستخدم غير موجود",401)
         }
      
         await comparePassword(password,user.password,next)

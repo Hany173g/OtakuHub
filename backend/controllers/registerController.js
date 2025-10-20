@@ -7,7 +7,7 @@ const {checkUserData,hashPassword,valdtionData} = require('../utils/auth')
 const {createError} = require('../utils/createError')
 
 
-exports.register = async(req,res) => {
+exports.register = async(req,res,next) => {
     try {
         let {username,email,password} = req.body;
  
@@ -20,6 +20,7 @@ exports.register = async(req,res) => {
         res.status(201).json({message:"تم انشاء الحساب بنجاح"})
     }catch (err)
     {
+
         next(err)
     }
 }

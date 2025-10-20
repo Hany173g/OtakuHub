@@ -10,7 +10,8 @@ import {
   Stack,
   Divider,
   Container,
-  Chip
+  Chip,
+  Alert
 } from '@mui/material'
 import {
   Send as SendIcon,
@@ -27,6 +28,7 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [error, setError] = useState('')
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -49,11 +51,21 @@ export default function Chat() {
           createdAt: new Date().toISOString()
         }])
       })
+
+      // Listen for errors from backend
+      socket.on('error', (errorData) => {
+        console.error('❌ Socket error:', errorData)
+        setError(errorData.message || 'حدث خطأ في الإرسال')
+        
+        // Clear error after 5 seconds
+        setTimeout(() => setError(''), 5000)
+      })
     }
 
     return () => {
       if (socket) {
         socket.off('messageSend')
+        socket.off('error')
       }
     }
   }, [username, socket])
@@ -216,6 +228,17 @@ export default function Chat() {
           py: 1,
           bgcolor: '#f8f9fa'
         }}>
+          {/* Error Alert */}
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ mb: 1, fontSize: '0.8rem' }}
+              onClose={() => setError('')}
+            >
+              {error}
+            </Alert>
+          )}
+          
           {messages.length === 0 ? (
             <Box sx={{ 
               display: 'flex', 

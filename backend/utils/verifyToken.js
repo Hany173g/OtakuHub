@@ -7,11 +7,15 @@ require("dotenv").config();
 
 
 
+const{createError} = require('./createError')
+
+
+
 
 
 module.exports =  (token) => {
     if (!token) {
-         return  next(createError("التوكن غير موجود",400))
+        throw createError("التوكن غير موجود",400)
 
     }
 

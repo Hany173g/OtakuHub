@@ -22,6 +22,7 @@ import CssBaseline from '@mui/material/CssBaseline'
 import SnackbarProvider from './components/ui/SnackbarProvider'
 import { SocketProvider } from './contexts/SocketContext'
 import { ChatProvider } from './contexts/ChatContext'
+import { ErrorProvider } from './contexts/ErrorContext'
 
 const getTheme = () => createTheme({
   palette: {
@@ -116,7 +117,8 @@ export default function App() {
       <CssBaseline />
       <SocketProvider>
         <ChatProvider>
-          <SnackbarProvider>
+          <ErrorProvider>
+            <SnackbarProvider>
             <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
               <Navbar />
               <Container maxWidth="lg" sx={{ py: { xs: 1, md: 2 }, px: { xs: 1, sm: 2, md: 3 } }}>
@@ -138,7 +140,8 @@ export default function App() {
                 </Routes>
               </Container>
             </Box>
-          </SnackbarProvider>
+            </SnackbarProvider>
+          </ErrorProvider>
         </ChatProvider>
       </SocketProvider>
     </ThemeProvider>

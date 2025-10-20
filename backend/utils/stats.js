@@ -5,12 +5,14 @@ const{Notificationsystem} = require('../service/NotifcationService')
 
 
 
+const{createError} = require('./createError')
+
 const checkGroupStats = async(checkBlog,userId) => {
     let group = await Groups.findByPk(checkBlog);
             let checkUser = await group.getUsers({where:{id:userId}})
         if (group.privacy === 'private' && checkUser.length < 1)
             {
-                return  next(createError("هذا الجروب خاص",401))
+               throw createError("هذا الجروب خاص",401)
                
             }
 }
@@ -47,7 +49,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
          secondaryAction = await dislike.findOne({where:{userId:user.id,[idColumn]:id}}) // dislike
         if (primaryAction)
         {
-           return  next(createError("لقد قمت بلفعل بوضع اعجاب",400))
+          throw createError("لقد قمت بلفعل بوضع اعجاب",400)
      
         }        
     }
@@ -57,7 +59,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
          
         if (primaryAction)
         {
-                return  next(createError("لقد قمت بلفعل بوضع  عدم اعجاب",400))
+               throw createError("لقد قمت بلفعل بوضع  عدم اعجاب",400)
      
         }   
     }
@@ -84,7 +86,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                     let profile = await Profile.findByPk(userId)
                     if (!profile)
                     {
-                          return  next(createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404))
+                       throw createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404)
                     }
                     let content = `قام ${user.username}  بي الأعجاب لمنشورك`;
 
@@ -180,7 +182,7 @@ const Like_Dislike = async(user,id,service,item,actionUser,group) => {
                      let profile = await Profile.findByPk(userId)
                     if (!profile)
                     {
-                          return  next(createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404))
+                         throw createError("يبدو ان صاحب المنشور قد حذف  حسابو او تم حظر الحساب",404)
                     }
                     await profile.decrement("likes",{by:1})
                 }

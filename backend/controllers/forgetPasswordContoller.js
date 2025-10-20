@@ -17,13 +17,13 @@ const {sentEmail} = require('../utils/sentEmail')
 
 
 
-exports.forgetPassword = async(req,res) => {
+exports.forgetPassword = async(req,res,next) => {
     try{
         const{email} = req.body;
         let user = await User.findOne({where:{email}});
         if (!user)
         {
-            return  next(createError("هذا المستخدم غير موجود",400))
+           throw createError("هذا المستخدم غير موجود",400)
         }
         let token = randomToken() + '_'+user.id.toString();;
         await resetToken.create({token,expiredToken:Date.now()})
@@ -31,7 +31,7 @@ exports.forgetPassword = async(req,res) => {
         res.status(200).json({message:"من فضلك قم بتفحص الأميل الخاص بك"})
     }catch(err)
     {
-          next(createError(err.message,401))
+         next(err)
     }
 }
 
@@ -68,25 +68,25 @@ exports.resetPassword = async(req,res,next) => {
         let hour = 1000 * 60 *60;
         if (!checkToken)
         {
-             return  next(createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400))
+         throw createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400)
          
         }
         else if (now > checkToken.expiredToken  + hour )
         {
-             return  next(createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400))
+             throw createError("هذا الكود غير صحيح او انتهاء مده المسموح به",400)
         }
-        checkResetData(newPassword,token)
+        checkResetData(newPassword,token,next)
         let parts = token.split('_');
-        let id = parts[1]; // userId
+        let id = parts[1]; 
         let password = await hashPassword(newPassword);
         await User.update(
-            { password }, // القيم الجديدة
-            { where: { id } }             // الشرط
+            { password }, 
+            { where: { id } }          
             );   
         res.status(201).json({message:"تم تحديث الرمز بنجاح"})
     }catch(err)
     {
-        next(createError(err.message,401))
+       next(err)
     }
 }
 

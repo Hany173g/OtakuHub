@@ -15,23 +15,24 @@ const {valdtionData,checkUserData,valdtionDataUpdate} = require('../utils/auth')
 const{updateProfileValdtion,checkPhoto,checkIsBlock} = require('../utils/checkData')
 
 
+const {createError} = require('../utils/createError')
 
 
 
-exports.getProfile = async(req,res) => {
+
+exports.getProfile = async(req,res,next) => {
     try{
         const{username} = req.params;
         
         if (!username)
         {
-            return  next(createError("البينات ليست كامله",400))
+               throw createError("البينات ليست كامله",400)
            
         }
         let user = await User.findOne({where:{username}});
         if (!user)
         {
-            return  next(createError("هذا المستخدم غير موجود او تم حذف حسابه",400))
-    
+                throw createError("هذا المستخدم غير موجود او تم حذف حسابه",400)
         }
         let profileData = await Profile.findOne({where:{userId:user.id}});
       
@@ -51,7 +52,7 @@ exports.getProfile = async(req,res) => {
             const reqUserInstance = await User.findByPk(req.user.id);
             
             statusUser =  await userRelations(reqUserInstance,user)
-            await checkIsBlock(reqUserInstance,user)
+            await checkIsBlock(reqUserInstance,user,next)
         }
         
         res.status(200).json({
@@ -73,19 +74,19 @@ exports.getProfile = async(req,res) => {
 
 
 
-exports.addUserData = async(req,res) => {
+exports.addUserData = async(req,res,next) => {
     try{
-        let user =   await  isUser(req.user)
+        let user =   await  isUser(req.user,next)
   
         let {username,email,password} = req.body;
        
        let dataAfterChecks =  await updateProfileValdtion(user,username,email,password);
-        await valdtionDataUpdate(username,email,user);
-        let data = checkUserData(dataAfterChecks)
+        await valdtionDataUpdate(username,email,user,next);
+        let data = checkUserData(dataAfterChecks,next)
         
     if (req.file)
     {   
-        checkPhoto(req.file)   
+        checkPhoto(req.file,next)   
         data.photo = req.file.filename;
     }
        
@@ -110,9 +111,9 @@ exports.addUserData = async(req,res) => {
 
 
 
-exports.requestsFriend = async(userData,friend) => {
-        let user =   await  isUser(userData)
-        await checkIsBlock(userData,friend)
+exports.requestsFriend = async(userData,friend,next) => {
+        let user =   await  isUser(userData,next)
+        await checkIsBlock(userData,friend,next)
         let request = await requestFriend.findOne({
                 where: {
                     [Op.or]: [
@@ -123,7 +124,7 @@ exports.requestsFriend = async(userData,friend) => {
                 });
          if (request)
             {
-                return  next(createError("لأ يمكنك ارسال طلبين",400))
+                 throw createError("لأ يمكنك ارسال طلبين",400)
             }       
    
          let friendProfile = await Profile.findOne({where:{userId:friend.id}});        
@@ -148,13 +149,13 @@ exports.requestsFriend = async(userData,friend) => {
 
 exports.reject = async(req,res) => {
     try{
-        let user = await isUser(req.user)
+        let user = await isUser(req.user,next)
         const{username,service} = req.body;
         let friend = await User.findOne({where:{username}});
        
         if (!friend)
         {
-            return  next(createError("هذا الشخص غير موجود",404))
+            throw createError("هذا الشخص غير موجود",404)
         }
         
         let friendRequest;
@@ -179,8 +180,7 @@ exports.reject = async(req,res) => {
       
         if (!friendRequest)
         {
-             return  next(createError("هذا الطلب غير موجود",404))
-        
+              throw createError("هذا الطلب غير موجود",404)
         }
         await friendRequest.destroy();
         res.status(201).json();
@@ -192,27 +192,26 @@ exports.reject = async(req,res) => {
 
 
 
-exports.acceptRequest = async(req,res) => {
+exports.acceptRequest = async(req,res,next) => {
     try{
-        let user = await isUser(req.user)
+        let user = await isUser(req.user,next)
         const{username} = req.body;
        
         let friend = await User.findOne({where:{username}});    
    
         if (!friend)
         {
-             return  next(createError("هذا الشخص غير موجود",404))
-    
+            throw createError("هذا الشخص غير موجود",404)
         }
         let friendRequest = await requestFriend.findOne({where:{userId:friend.id,friendId:user.id}});
         
         if (!friendRequest )
         {
-           return  next(createError("هذا الطلب غير موجود",404))
+            throw createError("هذا الطلب غير موجود",404)
         }
         else if (friendRequest.friendId != user.id)
         {
-             return  next(createError("لأ يمكنك قبول طلب انت ارسلته",400))
+            throw createError("لأ يمكنك قبول طلب انت ارسلته",400)
         }
          let userProfile = await Profile.findOne({where:{userId:user.id}});  
          let friendProfile = await Profile.findOne({where:{userId:friend.id}});  
@@ -236,14 +235,14 @@ exports.acceptRequest = async(req,res) => {
 
 
 
-exports.cancelFriend = async(req,res) => {
+exports.cancelFriend = async(req,res,next) => {
     try{
-        let user = await isUser(req.user)
+        let user = await isUser(req.user,next)
         let {username} = req.body;
         let friend = await User.findOne({where:{username}});
         if (!friend)
         {
-            return  next(createError("هذا الشخص غير موجود",400))
+           throw createError("هذا الشخص غير موجود",400)
         }
         let isFriend = await friends.findOne({
                 where: {
@@ -261,7 +260,7 @@ exports.cancelFriend = async(req,res) => {
         await friendProfile.decrement('UserFollows',{by:1})
         if (!isFriend)
         {
-             return  next(createError("انتم لستم اصدقاء بلفعل",400))
+            throw createError("انتم لستم اصدقاء بلفعل",400)
         }
         await isFriend.destroy();
         res.status(201).json({});
@@ -284,18 +283,18 @@ exports.cancelFriend = async(req,res) => {
 
 
 
-exports.blockUser = async(req,res) =>{
+exports.blockUser = async(req,res,next) =>{
     try{
-        let user = await isUser(req.user)
+        let user = await isUser(req.user,next)
         const {username} = req.params;
         if (username === user.username)
         {
-            return  next(createError("لأ يمكنك حظر نفسك",400))
+            throw createError("لأ يمكنك حظر نفسك",400)
         }
         let friend = await User.findOne({where:{username}})
         if (!friend)
         {
-            return  next(createError("هذا الشخص غير موجود",400))
+             throw createError("هذا الشخص غير موجود",400)
         }
               let block = await blocks.findOne({where:{
                 [Op.or]:[
@@ -306,10 +305,10 @@ exports.blockUser = async(req,res) =>{
             }})
         if (block)
         {
-             return  next(createError("هذا الشخص محظور بلفعل",400))
+            throw createError("هذا الشخص محظور بلفعل",400)
 
         }
-        let statusUser =  await userRelations(user,friend)
+        let statusUser =  await userRelations(user,friend,next)
         if (statusUser.request)
         {
             await statusUser.request.destroy();
@@ -326,9 +325,9 @@ exports.blockUser = async(req,res) =>{
     }
 }
 
-exports.cancelBlock = async(req,res) => {
+exports.cancelBlock = async(req,res,next) => {
     try{
-        let user = await isUser(req.user)
+        let user = await isUser(req.user,next)
         const {username} = req.params;
         let friend = await User.findOne({where:{username}})
          let block = await blocks.findOne({where:{
@@ -341,7 +340,7 @@ exports.cancelBlock = async(req,res) => {
 
         if (!block)
         {
-             return  next(createError("انت لم تقم بحظره بلفعل",400))
+            throw createError("انت لم تقم بحظره بلفعل",400)
         }
       
         await block.destroy();
@@ -359,9 +358,9 @@ exports.cancelBlock = async(req,res) => {
 
 
 
-exports.getBlocks = async(req,res) => {
+exports.getBlocks = async(req,res,next) => {
     try{
-         let user = await isUser(req.user)
+         let user = await isUser(req.user,next)
          let blocks = await user.getSentBlock();
          let usersBlocksIds = blocks.map(blockUser => blockUser.recivceBlock)
          let usersBlocks = await User.findAll({where:{id:usersBlocksIds},attributes:["id","username","photo"]})
@@ -372,19 +371,18 @@ exports.getBlocks = async(req,res) => {
     }
 }
 
-exports.removeBlock = async(req,res) => {
+exports.removeBlock = async(req,res,next) => {
     try{
-         let user = await isUser(req.user)
+         let user = await isUser(req.user,next)
          if (!req.body.idBlock)
          {
-             return  next(createError("البينات ليست كامله",400))
+             throw createError("البينات ليست كامله",400)
          }
          const{idBlock} = req.body;
          let blocks = await user.getSentBlock({where:{recivceBlock:idBlock}})
          if (blocks.length < 1)
          {
-             return  next(createError("هذا الشخص غير موجود",400))
-
+           throw createError("هذا الشخص غير موجود",400)
          }
          await blocks[0].destroy()
          res.status(201).json()

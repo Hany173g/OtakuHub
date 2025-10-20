@@ -4,6 +4,7 @@ const multer =  require('multer');
 
 
 
+const{createError} = require('./createError')
 
 
 
@@ -35,9 +36,11 @@ const checkSizePhoto =  (req, res, next) => {
     upload.single('photo')(req, res, function (err) {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ message: "الحجم الأقصى للملف 3 ميجا" });
+
+          return next(createError("الحجم الأقصى للملف 3 ميجا",400))
+         
         }
-        return res.status(400).json({ message: err.message });
+       next(err)
       }
       next();
     });

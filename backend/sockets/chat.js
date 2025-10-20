@@ -15,9 +15,10 @@ module.exports = (io,socket) => {
             socket.join(user.id);
         })
         socket.on('sendMessage',async(token,friendUsername,content) => {
-           let data =  verifyToken(token);
-            let user = await isUser(data);
-            let friend = await message.sendMessage(friendUsername,content,user)
+            try {
+                let data =  verifyToken(token);
+                let user = await isUser(data);
+                let friend = await message.sendMessage(friendUsername,content,user)
             
             // Send to friend with notification data
             io.to(friend.id).emit('messageSend', {
@@ -28,15 +29,19 @@ module.exports = (io,socket) => {
                 timestamp: new Date().toISOString()
             })
             
-            // Send confirmation to sender
-            socket.emit('messageConfirmed', {
-                content: content,
-                toUsername: friendUsername,
-                fromUsername: user.username,
-                fromPhoto: user.photo,
-                timestamp: new Date().toISOString(),
-                photo: friend.photo
-            })
+                // Send confirmation to sender
+                socket.emit('messageConfirmed', {
+                    content: content,
+                    toUsername: friendUsername,
+                    fromUsername: user.username,
+                    fromPhoto: user.photo,
+                    timestamp: new Date().toISOString(),
+                    photo: friend.photo
+                })
+            } catch(err) {
+                console.error('❌ Send message error:', err)
+                socket.emit('error', { message: err.message });
+            }
         })
         socket.on('deleteMessage' , async(token,messageId) => {
              try{

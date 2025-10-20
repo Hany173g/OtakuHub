@@ -39,9 +39,9 @@ const { blocks } = require('./blocksModel');
 
 const{Notification} = require('./notificationModel')
 
+const{warringUser} = require('./warringUserModel')
 
-
-
+const {bannedUser} = require('./bannedUserModel')
 
 // Users ReelationShips
 
@@ -170,6 +170,16 @@ const{Notification} = require('./notificationModel')
         report.belongsTo(User,{foreignKey:"userId"})
 
 
+        //relation user to warringUser
+
+        User.hasMany(warringUser,{foreignKey:"userId"})
+        warringUser.belongsTo(User,{foreignKey:"userId"})
+
+
+
+        // relation user to bannedUser
+        User.hasMany(bannedUser,{foreignKey:"userId",onDelete:"CASCADE"})
+        bannedUser.belongsTo(User,{foreignKey:"userId"})
 //Blogs ReelationShips
 
 
@@ -207,6 +217,9 @@ const{Notification} = require('./notificationModel')
             Blogs.hasMany(report,{foreignKey:'serviceId',onDelete:'CASCADE'})
             report.belongsTo(Blogs,{foreignKey:'serviceId'});
 
+
+
+        
 
 
 
@@ -281,8 +294,17 @@ const{Notification} = require('./notificationModel')
 
 
 
+       // relation group to warringUser
+
+       Groups.hasMany(warringUser,{foreignKey:"groupId",onDelete:"CASCADE"})
+       warringUser.belongsTo(Groups,{foreignKey:"groupId"})
+
+
+       //relation group to bannedUsers
+
+        Groups.hasMany(bannedUser,{foreignKey:"groupId",onDelete:"CASCADE"})
+        bannedUser.belongsTo(Groups,{foreignKey:"groupId"})
 
 
 
-
-module.exports = {User,Blogs,dislikesBlogs,Notification,penningBlogs,groupSettings,report,blocks,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+module.exports = {User,bannedUser,Blogs,dislikesBlogs,Notification,warringUser,penningBlogs,groupSettings,report,blocks,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

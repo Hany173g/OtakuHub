@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useError } from '../contexts/ErrorContext'
 import {
   Box,
   Container,
@@ -45,6 +46,7 @@ export default function GroupDetails() {
   const { groupName } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { showError } = useError()
   const [groupData, setGroupData] = useState(null)
   const [groupSettings, setGroupSettings] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -106,6 +108,7 @@ export default function GroupDetails() {
       }
     } catch (err) {
       console.error('Error joining group:', err)
+      showError(err.message || 'حدث خطأ أثناء محاولة الانضمام للمجموعة')
     } finally {
       setJoining(false)
     }
@@ -122,6 +125,7 @@ export default function GroupDetails() {
       }))
     } catch (err) {
       console.error('Error leaving group:', err)
+      showError(err.message || 'حدث خطأ أثناء محاولة مغادرة المجموعة')
     } finally {
       setJoining(false)
     }

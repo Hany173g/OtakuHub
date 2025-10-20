@@ -13,6 +13,11 @@ require('dotenv').config()
 
 
 
+
+const{createError} = require('./createError')
+
+
+
 // check all user data and lengths and throw error
 
 let checkUserData = ({username,email,password,next}) => 
@@ -21,15 +26,15 @@ let checkUserData = ({username,email,password,next}) =>
     if (!username || !email || !password )
     {
        
-        return next(createError("البينات ليست كامله",400))
+      throw createError("البينات ليست كامله",400)
     }
     if (!validator.isEmail(email))
     {
-         return next(createError("هذا ليس ايميل",400))
+        throw createError("هذا ليس ايميل",400)
     }
     if (username.length < 5|| username.length > 15 )
     {
-        return next(createError("يجيب ان يكون الأسم اكبر من 4 حرف و اصغر من 16 حرف",400))     
+         throw createError("يجيب ان يكون الأسم اكبر من 4 حرف و اصغر من 16 حرف",400)
     }
   
     return {username,email,password}
@@ -48,22 +53,19 @@ let valdtionData = async(username = null,email = null,user,next) =>
 
     if (checkEmail)
     {
-     
-           return  next(createError("هذا الأيميل مستخدم من قبل",401))
-          
-        
+         throw createError("هذا الأيميل مستخدم من قبل",401)
     }
     
     else if (checkUsername )
     {   
-            return next(createError("هذا الأسم مستخدم من قبل",401))
+       throw createError("هذا الأسم مستخدم من قبل",401)
     }
    
 }
 
 
 
-let valdtionDataUpdate = async(username = null,email = null,user) => 
+let valdtionDataUpdate = async(username = null,email = null,user,next) => 
 {
     
 
@@ -76,7 +78,7 @@ let valdtionDataUpdate = async(username = null,email = null,user) =>
     {
       if (checkEmail.id != user.id)
       {
-         return  next(createError("هذا الأيميل مستخدم من قبل",400))
+          throw createError("هذا الأيميل مستخدم من قبل",400)
       }          
     }
     
@@ -84,7 +86,7 @@ let valdtionDataUpdate = async(username = null,email = null,user) =>
     {   
         if (checkUsername.id != user.id)
         {
-             return  next(createError("هذا الأسم مستخدم من قبل",400))
+             throw createError("هذا الأسم مستخدم من قبل",400)
         }
     }
  
@@ -107,13 +109,13 @@ let hashPassword = async(password) => {
 
 
 
-let checkResetData = (newPassword,token) => 
+let checkResetData = (newPassword,token,next) => 
 {
        if(!token.includes('_')) 
-        return  next(createError("هذا التوكن غير صالح",400))
+        throw  createError("هذا التوكن غير صالح",400)
 
      if(!newPassword)
-        return  next(createError("من فضلك قم بكتابه الرمز الجديد",400))
+        throw createError("من فضلك قم بكتابه الرمز الجديد",400)
 }
 
 
@@ -121,7 +123,7 @@ let comparePassword = async(password,userPassword,next) => {
     let hashPassword = await bcrypt.compare(password,userPassword);
     if (!hashPassword)
     {
-        return  next(createError("هذا الباسورد غير صحيح",401))
+          throw createError("هذا الباسورد غير صحيح",401)
     }
      
 }
@@ -139,7 +141,7 @@ let randomToken = () => {
    
 
         function generateRandomToken(length = 20) {
-        return crypto.randomBytes(length).toString('hex'); // طول الكود: 40 حرف
+        return crypto.randomBytes(length).toString('hex'); 
         }
 
         return generateRandomToken()

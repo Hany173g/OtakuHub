@@ -44,7 +44,7 @@ const User = sequelize.define('User',{
 
 
 
-// // 
+
 // sequelize.sync({ alter: true }) // alter: يحاول يطابق الجدول مع الموديل
 //   .then(() => {
 //     console.log("All tables are synced!");
