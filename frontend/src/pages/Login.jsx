@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Box, Paper, Typography, TextField, Button, Stack, Alert } from '@mui/material'
-import { login, storage } from '../lib/api'
+import { loginUser, storage } from '../lib/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -15,7 +15,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await login({ email, password })
+      const { data } = await loginUser({ email, password })
       storage.token = data.token
       storage.user = data.user // حفظ بيانات المستخدم
       navigate('/')

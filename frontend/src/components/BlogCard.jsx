@@ -16,7 +16,9 @@ import {
   ThumbDown as ThumbDownIcon,
   ThumbUpAlt as ThumbUpOffAltIcon,
   ThumbDownAlt as ThumbDownOffAltIcon,
-  ChatBubbleOutline as ChatBubbleOutlineIcon
+  ChatBubbleOutline as ChatBubbleOutlineIcon,
+  Favorite as FavoriteIcon,
+  FavoriteBorder as FavoriteBorderIcon
 } from '@mui/icons-material'
 import Avatar from '@mui/material/Avatar'
 import Snackbar from '@mui/material/Snackbar'
@@ -30,7 +32,7 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
-import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE, reportService } from '../lib/api'
+import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE, reportService, addFavorite, removeFavorite } from '../lib/api'
 import CommentsDialog from './CommentsDialog'
 
 export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog, userRole = 'guest', groupSettings = null }) {
@@ -46,6 +48,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
   const hasPhoto = !!localBlog.photo
   const likedByUser = localBlog.isLike
   const dislikedByUser = localBlog.isDislike
+  const favoritedByUser = localBlog.isFavorite
   const stats = localBlog.blogStats || localBlog.blogStat || {}
   const likeCount = Math.max(0, stats.likesNumber ?? 0)
   const dislikeCount = Math.max(0, stats.dislikeNumber ?? 0)
@@ -254,6 +257,38 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
       }
     } catch (err) {
       showError(err, 'فشل في حذف التدوينة')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleFavorite = async () => {
+    if (busy) return
+    
+    try {
+      setBusy(true)
+      
+      // Update UI immediately
+      const updatedBlog = {
+        ...localBlog,
+        isFavorite: !favoritedByUser
+      }
+      setLocalBlog(updatedBlog)
+      onUpdateBlog?.(updatedBlog)
+      
+      // Send to backend
+      if (favoritedByUser) {
+        await removeFavorite(blog.id)
+        setSnack({ open: true, message: 'تم إزالة التدوينة من المفضلة', severity: 'info' })
+      } else {
+        await addFavorite(blog.id)
+        setSnack({ open: true, message: 'تم إضافة التدوينة للمفضلة', severity: 'success' })
+      }
+    } catch (err) {
+      // Revert UI change on error
+      setLocalBlog(blog)
+      onUpdateBlog?.(blog)
+      showError(err, 'فشل في تحديث المفضلة')
     } finally {
       setBusy(false)
     }
@@ -572,6 +607,40 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
             >
               💬 تعليقات ( {commentCount} )
             </Button>
+
+            {isAuthed && (
+              <Button
+                onClick={handleFavorite}
+                disabled={busy}
+                sx={{
+                  flex: 1,
+                  borderRadius: '15px',
+                  py: 2,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  fontFamily: '"Cairo", sans-serif',
+                  color: favoritedByUser ? '#E91E63' : 'text.secondary',
+                  bgcolor: favoritedByUser ? 'rgba(233, 30, 99, 0.1)' : 'transparent',
+                  border: favoritedByUser ? '2px solid rgba(233, 30, 99, 0.3)' : '2px solid transparent',
+                  transition: 'all 0.3s ease',
+                  '& .MuiButton-startIcon': {
+                    marginRight: '10px'
+                  },
+                  '&:hover': { 
+                    bgcolor: 'rgba(233, 30, 99, 0.1)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 25px rgba(233, 30, 99, 0.2)'
+                  }
+                }}
+                startIcon={
+                  favoritedByUser ? 
+                  <FavoriteIcon sx={{ color: '#E91E63', fontSize: 22 }} /> : 
+                  <FavoriteBorderIcon sx={{ fontSize: 22 }} />
+                }
+              >
+                {favoritedByUser ? 'مفضلة' : 'إضافة للمفضلة'}
+              </Button>
+            )}
           </Stack>
         </Box>
       </Card>

@@ -44,4 +44,11 @@ router.get('/profile/getBlocks',profileContoller.getBlocks)
 router.post('/profile/removeBlock',profileContoller.removeBlock)
 
 
+
+
+
+router.get('/getFavorite',profileContoller.getFavorite)
+
+
+
 module.exports = router

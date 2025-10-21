@@ -11,7 +11,7 @@ const {isUser} =require('../utils/isUser')
 
 
 
-exports.getFriendsRequest = async(req,res) => {
+exports.getFriendsRequest = async(req,res,next) => {
     try{
         let user =   await  isUser(req.user)
         let receivedRequest = await user.getReceivedRequests();
@@ -31,10 +31,12 @@ exports.getFriendsRequest = async(req,res) => {
 
 
 
-exports.getNotication = async(req,res) => {
+exports.getNotication = async(req,res,next) => {
     try{
         let user =   await  isUser(req.user)
-        let userNottication = await Notification.findAll({where:{userId:user.id},order:[['createdAt','DESC']],limit:20})
+        let userNottication = await Notification.findAll({where:{userId:user.id,isRead:false},order:[['createdAt','DESC']],limit:20})
+      
+     
         res.status(200).json({userNottication})
     }catch(err)
     {
@@ -42,3 +44,18 @@ exports.getNotication = async(req,res) => {
     }
 }
 
+
+exports.markNotfcsRead = async(req,res,next) => {
+    try{
+        const {ids} = req.body;
+        
+       await Notification.update(
+        { isRead: true },
+        { where: { id: ids } }
+        );
+        res.status(201).json()
+    }catch(err)
+    {
+        next(err)
+    }
+}

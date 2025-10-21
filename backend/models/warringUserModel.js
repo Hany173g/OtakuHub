@@ -37,6 +37,10 @@ const warringUser = sequelize.define("warringUser",{
     warringNumbers: {
         type:DataTypes.INTEGER,
         defaultValue:0
+    },
+    warnedBy:{
+        type:DataTypes.INTEGER,
+        allowNull:false
     }
 
 },{

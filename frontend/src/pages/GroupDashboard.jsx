@@ -56,9 +56,11 @@ import {
   History as HistoryIcon,
   Article as ArticleIcon,
   Comment as CommentIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Warning as WarningIcon,
+  Block as BlockIcon
 } from '@mui/icons-material'
-import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup, getGroupLogger, getHistoryDelete, updateGroupSettings, getGroupReports, getPendingBlogs, acceptPendingBlog, cancelPendingBlog } from '../lib/api'
+import { API_BASE, getPendingUsers, acceptUser, cancelUser, checkGroupAccess, api, searchMembers, changeRole, kickUser, updateGroupData, getGroup, storage, deleteGroup, changeOwner, leaveGroup, getGroupLogger, getHistoryDelete, updateGroupSettings, getGroupReports, getPendingBlogs, acceptPendingBlog, cancelPendingBlog, searchLogger, searchHistoryDelete, searchReports, addWarning, getBannedUsers, removeBannedUser, searchBannedUser } from '../lib/api'
 
 export default function GroupDashboard() {
   const { groupName } = useParams()
@@ -116,6 +118,8 @@ export default function GroupDashboard() {
 
   // Settings tab states
   const [settingsLoading, setSettingsLoading] = useState(false)
+  const [warningNumberDialog, setWarningNumberDialog] = useState(false)
+  const [newWarningNumber, setNewWarningNumber] = useState(3)
 
   // Reports tab states
   const [reports, setReports] = useState([])
@@ -128,6 +132,37 @@ export default function GroupDashboard() {
   const [pendingBlogs, setPendingBlogs] = useState([])
   const [loadingPending, setLoadingPending] = useState(false)
   const [processingBlog, setProcessingBlog] = useState(null)
+
+  // Search states for different tabs
+  const [activitiesSearchTerm, setActivitiesSearchTerm] = useState('')
+  const [activitiesSearchStatus, setActivitiesSearchStatus] = useState('all') // للـ search فقط
+  const [historySearchTerm, setHistorySearchTerm] = useState('')
+  const [historySearchService, setHistorySearchService] = useState('all') // للـ search فقط
+  const [reportsSearchTerm, setReportsSearchTerm] = useState('')
+  const [reportsSearchType, setReportsSearchType] = useState('blog') // للـ search فقط
+  const [searchResults, setSearchResults] = useState({
+    activities: [],
+    history: [],
+    reports: [],
+    bannedUsers: []
+  })
+  const [isSearchingTabs, setIsSearchingTabs] = useState({
+    activities: false,
+    history: false,
+    reports: false,
+    bannedUsers: false
+  })
+
+  // Warning Users states
+  const [warningDialog, setWarningDialog] = useState({ open: false, userId: '', username: '', currentWarnings: 0 })
+  const [warningMessage, setWarningMessage] = useState('')
+  const [sendingWarning, setSendingWarning] = useState(false)
+
+  // Banned Users states
+  const [bannedUsers, setBannedUsers] = useState([])
+  const [loadingBannedUsers, setLoadingBannedUsers] = useState(false)
+  const [bannedUsersSearchTerm, setBannedUsersSearchTerm] = useState('')
+  const [removingBannedUser, setRemovingBannedUser] = useState(null)
 
   useEffect(() => {
     checkAccess()
@@ -144,20 +179,16 @@ export default function GroupDashboard() {
       loadReports()
     } else if (currentTab === 7) {
       loadPendingBlogs()
+    } else if (currentTab === 8) {
+      loadBannedUsers()
     }
   }, [currentTab, historyService])
 
   const loadGroupData = async () => {
     try {
       const { data } = await getGroup(groupName)
-      console.log('GroupDashboard - Full response:', data)
-      console.log('GroupDashboard - Role from API:', data.role)
-      console.log('GroupDashboard - GroupData role:', data.groupData?.role)
-      console.log('GroupDashboard - GroupSettings:', data.groupSettings)
-      
       // Try to get role from different possible locations
       const role = data.role || data.groupData?.role || ''
-      console.log('GroupDashboard - Final role:', role)
       
       // Set both groupData and groupSettings
       setGroupData({
@@ -170,7 +201,7 @@ export default function GroupDashboard() {
         privacy: data.privacy || data.groupData?.privacy || 'public' 
       })
     } catch (err) {
-      console.error('Error loading group data:', err)
+      // Silent fail for group data loading
     }
   }
 
@@ -184,7 +215,7 @@ export default function GroupDashboard() {
         storage.user = updatedUser
       }
     } catch (err) {
-      console.error('Error refreshing user data:', err)
+      // Silent fail for user data refresh
     }
   }
 
@@ -204,14 +235,13 @@ export default function GroupDashboard() {
     try {
       setLoading(true)
       const response = await getPendingUsers(groupName)
-      console.log('Load API Response:', response)
       // getPendingUsers returns axios response, so we need .data
       const data = response.data || response
       const users = data.pendingUser || data.pendinguser || []
       setPendingUsers(users)
       setAllPendingUsers(users) // Store all users for clear search
     } catch (err) {
-      console.error('Error loading pending users:', err)
+      // Silent fail for pending users loading
       setPendingUsers([])
       setAllPendingUsers([])
     } finally {
@@ -227,17 +257,24 @@ export default function GroupDashboard() {
     
     try {
       setIsSearching(true)
-      console.log('Searching for:', { groupName, username: searchTerm })
       const response = await api.post('/api/group/searchPendingUser', {
         groupName: groupName,
         username: searchTerm
       })
-      console.log('Search API Response:', response.data)
       // Backend returns array directly, not wrapped in object
-      setPendingUsers(Array.isArray(response.data) ? response.data : [])
+      const results = Array.isArray(response.data) ? response.data : []
+      setPendingUsers(results)
+      
+      // Show message if no results found
+      if (results.length === 0) {
+        setSnackbar({ 
+          open: true, 
+          message: `لا يوجد طلبات انضمام للمستخدم "${searchTerm}"`, 
+          severity: 'info' 
+        })
+      }
     } catch (err) {
-      console.error('Error searching users:', err)
-      console.error('Error response:', err.response?.data)
+      // Silent fail for user search
     } finally {
       setIsSearching(false)
     }
@@ -256,7 +293,6 @@ export default function GroupDashboard() {
       setAllPendingUsers(prev => prev.filter(user => user.requestId !== id))
       setSnackbar({ open: true, message: 'تم قبول العضو بنجاح', severity: 'success' })
     } catch (err) {
-      console.error('Error accepting user:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل قبول العضو', 
@@ -275,7 +311,6 @@ export default function GroupDashboard() {
       setAllPendingUsers(prev => prev.filter(user => user.requestId !== id))
       setSnackbar({ open: true, message: 'تم رفض العضو', severity: 'info' })
     } catch (err) {
-      console.error('Error rejecting user:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل رفض العضو', 
@@ -298,27 +333,36 @@ export default function GroupDashboard() {
       setIsSearchingMembers(true)
       setHasSearchedMembers(true)
       const response = await searchMembers(groupName, memberSearchTerm)
-      console.log('Search Members Response:', response.data)
-      setMembers(response.data.filterMember || [])
+      const results = response.data.filterMember || []
+      setMembers(results)
+      
+      // Show message if no results found
+      if (results.length === 0) {
+        setSnackbar({ 
+          open: true, 
+          message: `لا يوجد أعضاء بالاسم "${memberSearchTerm}"`, 
+          severity: 'info' 
+        })
+      }
     } catch (err) {
-      console.error('Error searching members:', err)
-      console.error('Error response:', err.response?.data)
       setMembers([])
+      // Only show error message for non-400 errors (400 means user not found, which is normal)
+      if (err.response?.status !== 400) {
+        setSnackbar({ 
+          open: true, 
+          message: err.message || 'حدث خطأ أثناء البحث عن الأعضاء', 
+          severity: 'error' 
+        })
+      }
     } finally {
       setIsSearchingMembers(false)
     }
   }
 
   const handleRoleChange = async (username, newRole) => {
-    console.log('🔄 Changing role for:', username, 'to:', newRole)
-    console.log('🔑 Token exists:', storage.token ? 'YES' : 'NO')
-    console.log('👤 Current user:', storage.user?.username)
-    
     try {
       setProcessing(username)
-      console.log('📡 Calling changeRole API...')
       await changeRole(groupName, username, newRole)
-      console.log('✅ Role changed successfully')
       
       // Refresh search after role change
       await searchMembersFunc()
@@ -326,9 +370,6 @@ export default function GroupDashboard() {
       await refreshUserData()
       setSnackbar({ open: true, message: 'تم تغيير الصلاحية بنجاح', severity: 'success' })
     } catch (err) {
-      console.error('💥 Error changing role:', err)
-      console.error('💥 Error response:', err.response?.data)
-      console.error('💥 Error status:', err.response?.status)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل تغيير الصلاحية', 
@@ -353,7 +394,6 @@ export default function GroupDashboard() {
       setMembers(prev => prev.filter(m => m.username !== username))
       setSnackbar({ open: true, message: 'تم طرد العضو بنجاح', severity: 'success' })
     } catch (err) {
-      console.error('Error kicking user:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل طرد العضو', 
@@ -383,7 +423,6 @@ export default function GroupDashboard() {
         navigate(`/groups/${groupName}`)
       }, 2000)
     } catch (err) {
-      console.error('Error transferring ownership:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل نقل الملكية', 
@@ -420,7 +459,6 @@ export default function GroupDashboard() {
       setPhotoPreview(null)
       setSnackbar({ open: true, message: 'تم حفظ الإعدادات بنجاح', severity: 'success' })
     } catch (err) {
-      console.error('Error updating group:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل حفظ الإعدادات', 
@@ -441,7 +479,6 @@ export default function GroupDashboard() {
         navigate('/groups')
       }, 2000)
     } catch (err) {
-      console.error('Error deleting group:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل حذف المجموعة', 
@@ -461,7 +498,6 @@ export default function GroupDashboard() {
         navigate('/groups')
       }, 2000)
     } catch (err) {
-      console.error('Error leaving group:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل مغادرة المجموعة', 
@@ -479,10 +515,6 @@ export default function GroupDashboard() {
       // Merge activities with user data
       const activitiesWithUsers = (data.logger || []).map(activity => {
         const user = (data.users || []).find(u => u.id === activity.userId)
-        console.log('Activity:', activity)
-        console.log('Found user:', user)
-        console.log('Photo path:', user?.photo)
-        console.log('Full photo URL:', user?.photo ? `${API_BASE}${user.photo}` : 'No photo')
         return {
           ...activity,
           user: user || { username: 'مستخدم محذوف', photo: null }
@@ -491,8 +523,6 @@ export default function GroupDashboard() {
       
       setActivities(activitiesWithUsers)
     } catch (err) {
-      console.error('Error loading activities:', err)
-      console.error('Error response:', err.response?.data)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل تحميل النشاطات', 
@@ -517,8 +547,6 @@ export default function GroupDashboard() {
       const { data } = await getHistoryDelete(groupName, service)
       setHistoryDelete(data.historyDelete || [])
     } catch (err) {
-      console.error('Error loading history delete:', err)
-      console.error('Error response:', err.response?.data)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل تحميل سجل الحذف', 
@@ -551,7 +579,7 @@ export default function GroupDashboard() {
         [settingName]: value
       }
       
-      await updateGroupSettings(groupName, newSettings.publish, newSettings.allowReports)
+      await updateGroupSettings(groupName, newSettings.publish, newSettings.allowReports, null)
       
       // Update local state
       setGroupData(prev => ({
@@ -568,7 +596,6 @@ export default function GroupDashboard() {
         severity: 'success' 
       })
     } catch (err) {
-      console.error('Error updating settings:', err)
       setSnackbar({ 
         open: true, 
         message: err.message || 'فشل في تحديث الإعدادات', 
@@ -586,7 +613,6 @@ export default function GroupDashboard() {
       const { data } = await getGroupReports(groupName, type)
       setReports(data.groupReports || [])
     } catch (err) {
-      console.error('Error loading reports:', err)
       setSnackbar({ 
         open: true, 
         message: 'فشل في تحميل البلاغات', 
@@ -629,7 +655,6 @@ export default function GroupDashboard() {
       const { data } = await getPendingBlogs(groupName)
       setPendingBlogs(data.blogs || [])
     } catch (err) {
-      console.error('Error loading pending blogs:', err)
       setSnackbar({ 
         open: true, 
         message: 'فشل في تحميل المنشورات المعلقة', 
@@ -688,6 +713,287 @@ export default function GroupDashboard() {
   const handleTabChange = (tabIndex) => {
     setCurrentTab(tabIndex)
     localStorage.setItem(`groupDashboard_${groupName}_tab`, tabIndex.toString())
+  }
+
+  // Search functions
+  const handleActivitiesSearch = async (username) => {
+    if (!username.trim()) {
+      setSearchResults(prev => ({ ...prev, activities: [] }))
+      return
+    }
+    
+    try {
+      setIsSearchingTabs(prev => ({ ...prev, activities: true }))
+      const statusToSend = activitiesSearchStatus
+      const { data } = await searchLogger(groupName, username, statusToSend)
+      const results = data.loggerUser || []
+      setSearchResults(prev => ({ ...prev, activities: results }))
+      
+      // Show message if no results found
+      if (results.length === 0) {
+        setSnackbar({ 
+          open: true, 
+          message: `لا توجد نشاطات للمستخدم "${username}"`, 
+          severity: 'info' 
+        })
+      }
+    } catch (err) {
+      const errorMessage = err.message || err.response?.data?.message || 'حدث خطأ'
+      const errorStatus = err.status || err.response?.status
+      
+      setSnackbar({ 
+        open: true, 
+        message: errorMessage, 
+        severity: errorStatus === 400 ? 'info' : 'error'
+      })
+    } finally {
+      setIsSearchingTabs(prev => ({ ...prev, activities: false }))
+    }
+  }
+
+  const handleHistorySearch = async (username) => {
+    if (!username.trim()) {
+      setSearchResults(prev => ({ ...prev, history: [] }))
+      return
+    }
+    
+    try {
+      setIsSearchingTabs(prev => ({ ...prev, history: true }))
+      
+      if (historySearchService === 'all') {
+        // للـ "الكل" نعمل requests منفصلة للـ blog والـ comment
+        const [blogData, commentData] = await Promise.all([
+          searchHistoryDelete(groupName, username, 'blog'),
+          searchHistoryDelete(groupName, username, 'comment')
+        ])
+        
+        const combinedResults = [
+          ...(blogData.data.userHistoryDelete || []),
+          ...(commentData.data.userHistoryDelete || [])
+        ]
+        
+        // ترتيب النتائج حسب التاريخ
+        combinedResults.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        
+        setSearchResults(prev => ({ ...prev, history: combinedResults }))
+        
+        // Show message if no results found
+        if (combinedResults.length === 0) {
+          setSnackbar({ 
+            open: true, 
+            message: `لا يوجد سجل حذف للمستخدم "${username}"`, 
+            severity: 'info' 
+          })
+        }
+      } else {
+        // تحويل الـ service للـ format الصحيح للـ backend
+        const serviceToSend = historySearchService === 'posts' ? 'blog' : 'comment'
+        
+        const { data } = await searchHistoryDelete(groupName, username, serviceToSend)
+        const results = data.userHistoryDelete || []
+        setSearchResults(prev => ({ ...prev, history: results }))
+        
+        // Show message if no results found
+        if (results.length === 0) {
+          const serviceText = historySearchService === 'posts' ? 'المنشورات' : 'التعليقات'
+          setSnackbar({ 
+            open: true, 
+            message: `لا يوجد سجل حذف ${serviceText} للمستخدم "${username}"`, 
+            severity: 'info' 
+          })
+        }
+      }
+    } catch (err) {
+      const errorMessage = err.message || err.response?.data?.message || 'حدث خطأ'
+      const errorStatus = err.status || err.response?.status
+      
+      setSnackbar({ 
+        open: true, 
+        message: errorMessage, 
+        severity: errorStatus === 400 ? 'info' : 'error'
+      })
+    } finally {
+      setIsSearchingTabs(prev => ({ ...prev, history: false }))
+    }
+  }
+
+  const handleReportsSearch = async (username) => {
+    if (!username.trim()) {
+      setSearchResults(prev => ({ ...prev, reports: [] }))
+      return
+    }
+    
+    try {
+      setIsSearchingTabs(prev => ({ ...prev, reports: true }))
+      
+      // بعت الـ service مباشرة (blog أو comment)
+      const { data } = await searchReports(groupName, username, reportsSearchType)
+      const results = data.userReports || []
+      setSearchResults(prev => ({ ...prev, reports: results }))
+      
+      // Show message if no results found
+      if (results.length === 0) {
+        const serviceText = reportsSearchType === 'blog' ? 'المنشورات' : 'التعليقات'
+        setSnackbar({ 
+          open: true, 
+          message: `لا توجد بلاغات على ${serviceText} للمستخدم "${username}"`, 
+          severity: 'info' 
+        })
+      }
+    } catch (err) {
+      const errorMessage = err.message || err.response?.data?.message || 'حدث خطأ'
+      const errorStatus = err.status || err.response?.status
+      
+      setSnackbar({ 
+        open: true, 
+        message: errorMessage, // الرسالة الأصلية من الـ API
+        severity: errorStatus === 400 ? 'info' : 'error'
+      })
+    } finally {
+      setIsSearchingTabs(prev => ({ ...prev, reports: false }))
+    }
+  }
+
+  // Warning Number Settings Function
+  const handleWarningNumberUpdate = async () => {
+    if (newWarningNumber < 1 || newWarningNumber > 10) {
+      setSnackbar({ open: true, message: 'عدد التحذيرات يجب أن يكون بين 1 و 10', severity: 'error' })
+      return
+    }
+
+    setSettingsLoading(true)
+    try {
+      const currentSettings = {
+        publish: groupData?.groupSettings?.publish ?? true,
+        allowReports: groupData?.groupSettings?.allowReports ?? true
+      }
+      
+      await updateGroupSettings(groupName, currentSettings.publish, currentSettings.allowReports, newWarningNumber)
+      
+      // Update local state
+      setGroupData(prev => ({
+        ...prev,
+        groupSettings: {
+          ...prev.groupSettings,
+          warringNumbers: newWarningNumber
+        }
+      }))
+      
+      setWarningNumberDialog(false)
+      setSnackbar({ 
+        open: true, 
+        message: 'تم تحديث عدد التحذيرات بنجاح وتم حذف جميع التحذيرات السابقة', 
+        severity: 'success' 
+      })
+    } catch (err) {
+      setSnackbar({ 
+        open: true, 
+        message: err.message || 'فشل في تحديث عدد التحذيرات', 
+        severity: 'error' 
+      })
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  // Warning Users Functions
+  const handleWarningUser = (userId, username, currentWarnings = 0) => {
+    setWarningDialog({ open: true, userId, username, currentWarnings })
+    setWarningMessage('')
+  }
+
+  const sendWarning = async () => {
+    if (!warningMessage.trim()) {
+      setSnackbar({ open: true, message: 'يرجى كتابة سبب التحذير', severity: 'error' })
+      return
+    }
+
+    setSendingWarning(true)
+    try {
+      const response = await addWarning(groupName, warningDialog.userId, warningMessage)
+      // استخدام البيانات من الـ backend response مع fallback
+      const warringNumbers = response.data?.warringNumbers || groupData?.groupSettings?.warringNumbers || 3
+      const userWarring = response.data?.userWarring || 1 // للمستخدمين الجدد، أول تحذير
+      
+      // حساب عدد التحذيرات
+      const maxWarnings = warringNumbers
+      const newWarningCount = userWarring
+      
+      if (newWarningCount >= maxWarnings) {
+        // امسح المستخدم من قائمة الأعضاء لأنه اتحظر
+        setMembers(prev => prev.filter(m => m.userId !== warningDialog.userId))
+        setSnackbar({ 
+          open: true, 
+          message: `تم إرسال التحذير وحظر المستخدم تلقائياً (${newWarningCount}/${maxWarnings} تحذيرات)`, 
+          severity: 'warning' 
+        })
+      } else {
+        setSnackbar({ 
+          open: true, 
+          message: `تم إرسال التحذير بنجاح (${newWarningCount}/${maxWarnings} تحذيرات)`, 
+          severity: 'success' 
+        })
+      }
+      
+      setWarningDialog({ open: false, userId: '', username: '', currentWarnings: 0 })
+      setWarningMessage('')
+    } catch (error) {
+      setSnackbar({ 
+        open: true, 
+        message: error.response?.data?.message || error.message || 'حدث خطأ أثناء إرسال التحذير', 
+        severity: 'error' 
+      })
+    } finally {
+      setSendingWarning(false)
+    }
+  }
+
+  // Banned Users Functions
+  const loadBannedUsers = async () => {
+    setLoadingBannedUsers(true)
+    try {
+      const { data } = await getBannedUsers(groupName)
+      setBannedUsers(data.bannedGroupUsers || [])
+    } catch (error) {
+      // Don't show error for 404 or 500 (backend issues) - just show empty list
+      if (error.response?.status !== 404 && error.response?.status !== 500) {
+        setSnackbar({ open: true, message: error.message || 'حدث خطأ أثناء تحميل المحظورين', severity: 'error' })
+      }
+      setBannedUsers([])
+    } finally {
+      setLoadingBannedUsers(false)
+    }
+  }
+
+  const handleRemoveBannedUser = async (id) => {
+    setRemovingBannedUser(id)
+    try {
+      await removeBannedUser(groupName, id)
+      setSnackbar({ open: true, message: 'تم إلغاء الحظر بنجاح', severity: 'success' })
+      loadBannedUsers() // Reload the list
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message || 'حدث خطأ أثناء إلغاء الحظر', severity: 'error' })
+    } finally {
+      setRemovingBannedUser(null)
+    }
+  }
+
+  const searchBannedUsers = async () => {
+    if (!bannedUsersSearchTerm.trim()) {
+      setSnackbar({ open: true, message: 'يرجى إدخال اسم المستخدم للبحث', severity: 'error' })
+      return
+    }
+
+    setIsSearchingTabs(prev => ({ ...prev, bannedUsers: true }))
+    try {
+      const { data } = await searchBannedUser(groupName, bannedUsersSearchTerm)
+      setSearchResults(prev => ({ ...prev, bannedUsers: data.userBan || [] }))
+    } catch (error) {
+      const errorMessage = error.message || 'حدث خطأ أثناء البحث'
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' })
+    } finally {
+      setIsSearchingTabs(prev => ({ ...prev, bannedUsers: false }))
+    }
   }
 
   if (loading) {
@@ -909,6 +1215,33 @@ export default function GroupDashboard() {
                   <ArticleIcon />
                   <Typography fontWeight={currentTab === 7 ? 700 : 500}>
                     المنشورات المعلقة
+                  </Typography>
+                </Stack>
+              </Box>
+            )}
+
+            {/* Banned Users Tab (Owner/Admin/Moderator only) */}
+            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin' || userRole === 'Moderator') && (
+              <Box
+                onClick={() => {
+                  handleTabChange(8)
+                  loadBannedUsers()
+                }}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  bgcolor: currentTab === 8 ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <BlockIcon />
+                  <Typography fontWeight={currentTab === 8 ? 700 : 500}>
+                    المستخدمون المحظورون
                   </Typography>
                 </Stack>
               </Box>
@@ -1195,8 +1528,6 @@ export default function GroupDashboard() {
                 ⚙️ {userRole === 'owner' ? 'إعدادات المجموعة' : 'خيارات العضوية'}
               </Typography>
               
-              {/* Debug log */}
-              {console.log('Settings Tab - userRole:', userRole, 'isOwner:', userRole === 'owner')}
               
               {userRole === 'owner' ? (
                 <Stack spacing={4}>
@@ -1517,6 +1848,28 @@ export default function GroupDashboard() {
                                 <MenuItem value="Admin">Admin</MenuItem>
                               </Select>
                             </FormControl>
+                            
+                            {/* Warning Button - Only for Moderators and above */}
+                            {(userRole === 'owner' || userRole === 'admin' || userRole === 'Admin' || userRole === 'Moderator') && (
+                              <Button
+                                variant="outlined"
+                                color="warning"
+                                size="small"
+                                startIcon={<WarningIcon />}
+                                onClick={() => handleWarningUser(member.userId, member.username, member.currentWarnings || 0)}
+                                disabled={processing === member.username}
+                                sx={{ 
+                                  minWidth: 100,
+                                  '&:hover': {
+                                    bgcolor: 'warning.light',
+                                    color: 'white'
+                                  }
+                                }}
+                              >
+                                تحذير {member.currentWarnings ? `(${member.currentWarnings})` : ''}
+                              </Button>
+                            )}
+                            
                             <Button
                               variant="outlined"
                               color="primary"
@@ -1619,14 +1972,103 @@ export default function GroupDashboard() {
                 </FormControl>
               </Stack>
 
+              {/* Search Section */}
+              <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Typography variant="h6" mb={2}>🔍 البحث في النشاطات</Typography>
+                
+                <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="ابحث عن عضو في النشاطات..."
+                    value={activitiesSearchTerm}
+                    onChange={(e) => setActivitiesSearchTerm(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleActivitiesSearch(activitiesSearchTerm)
+                      }
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel>نوع النشاط للبحث</InputLabel>
+                    <Select
+                      value={activitiesSearchStatus}
+                      label="نوع النشاط للبحث"
+                      onChange={(e) => setActivitiesSearchStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <span>🔍</span>
+                          <span>الكل</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="join">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <PersonAddIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                          <span>انضمام</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="leave">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <ExitToAppIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                          <span>مغادرة</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="kick">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <PersonRemoveIcon sx={{ fontSize: 18, color: 'error.main' }} />
+                          <span>طرد</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="newOwner">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <CrownIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                          <span>تغيير المالك</span>
+                        </Stack>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+                
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Button
+                    variant="contained"
+                    onClick={() => handleActivitiesSearch(activitiesSearchTerm)}
+                    disabled={isSearchingTabs.activities}
+                    sx={{ minWidth: 100, height: 40 }}
+                  >
+                    {isSearchingTabs.activities ? 'جاري البحث...' : 'بحث'}
+                  </Button>
+                  {activitiesSearchTerm && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setActivitiesSearchTerm('')
+                        setSearchResults(prev => ({ ...prev, activities: [] }))
+                      }}
+                      sx={{ minWidth: 80, height: 40 }}
+                    >
+                      مسح
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+
               {/* Activities List */}
               {loadingActivities ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                   <CircularProgress />
                 </Box>
-              ) : activities.length > 0 ? (
+              ) : (activitiesSearchTerm.trim() && searchResults.activities.length > 0 ? searchResults.activities : activities).length > 0 ? (
                 <List>
-                  {activities.map((activity, index) => (
+                  {(activitiesSearchTerm.trim() && searchResults.activities.length > 0 ? searchResults.activities : activities).map((activity, index) => (
                     <ListItem key={index} divider={index < activities.length - 1}>
                       <ListItemIcon>
                         {activity.status === 'join' && <PersonAddIcon sx={{ color: 'success.main' }} />}
@@ -1736,6 +2178,83 @@ export default function GroupDashboard() {
                 </FormControl>
               </Box>
 
+              {/* Search Section */}
+              <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Typography variant="h6" mb={2}>🔍 البحث في سجل الحذف</Typography>
+                
+                <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="ابحث عن عضو في سجل الحذف..."
+                    value={historySearchTerm}
+                    onChange={(e) => setHistorySearchTerm(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleHistorySearch(historySearchTerm)
+                      }
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel>نوع المحتوى للبحث</InputLabel>
+                    <Select
+                      value={historySearchService}
+                      label="نوع المحتوى للبحث"
+                      onChange={(e) => setHistorySearchService(e.target.value)}
+                    >
+                      <MenuItem value="all">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <span>🔍</span>
+                          <span>الكل</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="posts">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <ArticleIcon sx={{ fontSize: 18 }} />
+                          <span>المقالات</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="comments">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <CommentIcon sx={{ fontSize: 18 }} />
+                          <span>التعليقات</span>
+                        </Stack>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+                
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Button
+                    variant="contained"
+                    onClick={() => handleHistorySearch(historySearchTerm)}
+                    disabled={isSearchingTabs.history}
+                    sx={{ minWidth: 100, height: 40 }}
+                  >
+                    {isSearchingTabs.history ? 'جاري البحث...' : 'بحث'}
+                  </Button>
+                  {historySearchTerm && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setHistorySearchTerm('')
+                        setSearchResults(prev => ({ ...prev, history: [] }))
+                      }}
+                      sx={{ minWidth: 80, height: 40 }}
+                    >
+                      مسح
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+
               {/* History Delete Content */}
               {loadingHistory ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -1744,9 +2263,9 @@ export default function GroupDashboard() {
                     جاري تحميل سجل الحذف...
                   </Typography>
                 </Box>
-              ) : historyDelete.length > 0 ? (
+              ) : (historySearchTerm.trim() && searchResults.history.length > 0 ? searchResults.history : historyDelete).length > 0 ? (
                 <List>
-                  {historyDelete.map((item, index) => (
+                  {(historySearchTerm.trim() && searchResults.history.length > 0 ? searchResults.history : historyDelete).map((item, index) => (
                     <ListItem key={index} divider={index < historyDelete.length - 1}>
                       <ListItemIcon>
                         {historyService === 'posts' ? (
@@ -1906,6 +2425,46 @@ export default function GroupDashboard() {
                     sx={{ alignItems: 'flex-start' }}
                   />
                 </Box>
+
+                <Divider />
+
+                {/* Warning Number Setting */}
+                <Box>
+                  <Typography variant="h6" fontWeight={600} mb={2}>
+                    ⚠️ عدد التحذيرات قبل الحظر
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" mb={2}>
+                    عدد التحذيرات المطلوبة قبل حظر العضو تلقائياً من المجموعة
+                  </Typography>
+                  
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Chip 
+                      label={`${groupData?.groupSettings?.warringNumbers || 3} تحذيرات`}
+                      color="warning"
+                      variant="outlined"
+                      sx={{ fontWeight: 600 }}
+                    />
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      onClick={() => {
+                        setNewWarningNumber(groupData?.groupSettings?.warringNumbers || 3)
+                        setWarningNumberDialog(true)
+                      }}
+                      disabled={settingsLoading}
+                      startIcon={<WarningIcon />}
+                    >
+                      تغيير العدد
+                    </Button>
+                  </Stack>
+                  
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      💡 <strong>ملاحظة:</strong> عند تغيير هذا الرقم، سيتم حذف جميع التحذيرات الحالية للأعضاء وإعادة تعيين العداد للجميع.
+                    </Typography>
+                  </Alert>
+                </Box>
               </Stack>
 
               {settingsLoading && (
@@ -1945,12 +2504,83 @@ export default function GroupDashboard() {
                   التعليقات
                 </Button>
               </Stack>
+
+              {/* Search Section */}
+              <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Typography variant="h6" mb={2}>🔍 البحث في البلاغات</Typography>
+                
+                <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="ابحث عن عضو في البلاغات..."
+                    value={reportsSearchTerm}
+                    onChange={(e) => setReportsSearchTerm(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleReportsSearch(reportsSearchTerm)
+                      }
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel>نوع البلاغات للبحث</InputLabel>
+                    <Select
+                      value={reportsSearchType}
+                      label="نوع البلاغات للبحث"
+                      onChange={(e) => setReportsSearchType(e.target.value)}
+                    >
+                      <MenuItem value="blog">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <ArticleIcon sx={{ fontSize: 18 }} />
+                          <span>المنشورات</span>
+                        </Stack>
+                      </MenuItem>
+                      <MenuItem value="comment">
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <CommentIcon sx={{ fontSize: 18 }} />
+                          <span>التعليقات</span>
+                        </Stack>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+                
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Button
+                    variant="contained"
+                    onClick={() => handleReportsSearch(reportsSearchTerm)}
+                    disabled={isSearchingTabs.reports}
+                    sx={{ minWidth: 100, height: 40 }}
+                  >
+                    {isSearchingTabs.reports ? 'جاري البحث...' : 'بحث'}
+                  </Button>
+                  {reportsSearchTerm && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setReportsSearchTerm('')
+                        setSearchResults(prev => ({ ...prev, reports: [] }))
+                      }}
+                      sx={{ minWidth: 80, height: 40 }}
+                    >
+                      مسح
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
               
               {loadingReports ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                   <CircularProgress />
                 </Box>
-              ) : reports.length === 0 ? (
+              ) : (reportsSearchTerm.trim() && searchResults.reports.length > 0 ? searchResults.reports : reports).length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                   <ReportIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" mb={1}>
@@ -1962,7 +2592,7 @@ export default function GroupDashboard() {
                 </Box>
               ) : (
                 <Box sx={{ display: 'grid', gap: 2 }}>
-                  {reports.map((report) => (
+                  {(reportsSearchTerm.trim() && searchResults.reports.length > 0 ? searchResults.reports : reports).map((report) => (
                     <Paper 
                       key={report.id} 
                       elevation={1}
@@ -2180,6 +2810,158 @@ export default function GroupDashboard() {
                     </Card>
                   ))}
                 </Stack>
+              )}
+            </Paper>
+          </Box>
+        )}
+
+        {/* Banned Users Tab */}
+        {currentTab === 8 && (userRole === 'owner' || userRole === 'admin' || userRole === 'Admin' || userRole === 'Moderator') && (
+          <Box>
+            <Paper elevation={2} sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight={700} mb={3}>
+                المستخدمون المحظورون
+              </Typography>
+              
+              {/* Search Section */}
+              <Box sx={{ mb: 3 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <TextField
+                    placeholder="البحث عن مستخدم محظور..."
+                    value={bannedUsersSearchTerm}
+                    onChange={(e) => setBannedUsersSearchTerm(e.target.value)}
+                    size="small"
+                    sx={{ flexGrow: 1 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={searchBannedUsers}
+                    disabled={isSearchingTabs.bannedUsers}
+                    startIcon={isSearchingTabs.bannedUsers ? <CircularProgress size={16} /> : <SearchIcon />}
+                  >
+                    {isSearchingTabs.bannedUsers ? 'جاري البحث...' : 'بحث'}
+                  </Button>
+                  {bannedUsersSearchTerm && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setBannedUsersSearchTerm('')
+                        setSearchResults(prev => ({ ...prev, bannedUsers: [] }))
+                        loadBannedUsers()
+                      }}
+                    >
+                      مسح
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+
+              {/* Loading State */}
+              {loadingBannedUsers && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {/* Search Results */}
+              {searchResults.bannedUsers && searchResults.bannedUsers.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" fontWeight={600} mb={2}>
+                    نتائج البحث
+                  </Typography>
+                  <Stack spacing={2}>
+                    {searchResults.bannedUsers.map((bannedUser) => (
+                      <Card key={bannedUser.id} sx={{ p: 2 }}>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Avatar
+                            src={bannedUser.User?.photo ? `${API_BASE}/${bannedUser.User.photo}` : undefined}
+                            sx={{ width: 50, height: 50 }}
+                          >
+                            {bannedUser.User?.username?.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="h6" fontWeight={600}>
+                              {bannedUser.User?.username}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              تم الحظر في: {new Date(bannedUser.createdAt).toLocaleDateString('ar-EG')}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleRemoveBannedUser(bannedUser.id)}
+                            disabled={removingBannedUser === bannedUser.id}
+                            startIcon={removingBannedUser === bannedUser.id ? <CircularProgress size={16} /> : <CheckIcon />}
+                          >
+                            {removingBannedUser === bannedUser.id ? 'جاري الإلغاء...' : 'إلغاء الحظر'}
+                          </Button>
+                        </Stack>
+                      </Card>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {/* All Banned Users List */}
+              {!loadingBannedUsers && (!searchResults.bannedUsers || searchResults.bannedUsers.length === 0) && (
+                <>
+                  {bannedUsers.length > 0 ? (
+                    <Stack spacing={2}>
+                      {bannedUsers.map((bannedUser) => (
+                        <Card key={bannedUser.id} sx={{ p: 2 }}>
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <Avatar
+                              src={bannedUser.User?.photo ? `${API_BASE}/${bannedUser.User.photo}` : undefined}
+                              sx={{ width: 50, height: 50 }}
+                            >
+                              {bannedUser.User?.username?.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="h6" fontWeight={600}>
+                                {bannedUser.User?.username}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                تم الحظر في: {new Date(bannedUser.createdAt).toLocaleDateString('ar-EG')}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              onClick={() => handleRemoveBannedUser(bannedUser.id)}
+                              disabled={removingBannedUser === bannedUser.id}
+                              startIcon={removingBannedUser === bannedUser.id ? <CircularProgress size={16} /> : <CheckIcon />}
+                            >
+                              {removingBannedUser === bannedUser.id ? 'جاري الإلغاء...' : 'إلغاء الحظر'}
+                            </Button>
+                          </Stack>
+                        </Card>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 8 }}>
+                      <BlockIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary" mb={1}>
+                        لا يوجد مستخدمون محظورون
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {bannedUsersSearchTerm 
+                          ? `لم يتم العثور على "${bannedUsersSearchTerm}" في المحظورين`
+                          : 'لم يتم حظر أي مستخدم في هذه المجموعة'
+                        }
+                      </Typography>
+                    </Box>
+                  )}
+                </>
               )}
             </Paper>
           </Box>
@@ -2404,6 +3186,136 @@ export default function GroupDashboard() {
             sx={{ minWidth: 150 }}
           >
             {deletingGroup ? 'جاري الحذف...' : '🗑️ حذف نهائياً'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Warning User Dialog */}
+      <Dialog
+        open={warningDialog.open}
+        onClose={() => setWarningDialog({ open: false, userId: '', username: '', currentWarnings: 0 })}
+        PaperProps={{
+          sx: { borderRadius: 2, minWidth: 500 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem', color: 'warning.main' }}>
+          ⚠️ إرسال تحذير للمستخدم
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" color="text.secondary" mb={2}>
+            إرسال تحذير للمستخدم: <strong>{warningDialog.username}</strong>
+          </Typography>
+          
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              📊 التحذيرات الحالية: <strong>{warningDialog.currentWarnings || 0}</strong> من أصل <strong>{groupData?.groupSettings?.warringNumbers || 3}</strong>
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {(warningDialog.currentWarnings || 0) + 1 >= (groupData?.groupSettings?.warringNumbers || 3) 
+                ? '⚠️ هذا التحذير سيؤدي إلى حظر المستخدم تلقائياً' 
+                : `💡 بعد هذا التحذير سيصبح لديه ${(warningDialog.currentWarnings || 0) + 1} تحذيرات`
+              }
+            </Typography>
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="سبب التحذير"
+            placeholder="اكتب سبب التحذير هنا..."
+            value={warningMessage}
+            onChange={(e) => setWarningMessage(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            💡 سيتم إرسال هذا التحذير للمستخدم وسيتم احتسابه ضمن تحذيراته
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => {
+              setWarningDialog({ open: false, userId: '', username: '', currentWarnings: 0 })
+              setWarningMessage('')
+            }}
+            variant="outlined"
+            disabled={sendingWarning}
+          >
+            إلغاء
+          </Button>
+          <Button
+            onClick={sendWarning}
+            variant="contained"
+            color="warning"
+            disabled={sendingWarning || !warningMessage.trim()}
+            startIcon={sendingWarning ? <CircularProgress size={16} /> : <WarningIcon />}
+            sx={{ minWidth: 150 }}
+          >
+            {sendingWarning ? 'جاري الإرسال...' : '⚠️ إرسال التحذير'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Warning Number Dialog */}
+      <Dialog
+        open={warningNumberDialog}
+        onClose={() => setWarningNumberDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 2, minWidth: 500 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem', color: 'warning.main' }}>
+          ⚠️ تغيير عدد التحذيرات
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" color="text.secondary" mb={3}>
+            اختر عدد التحذيرات المطلوبة قبل حظر العضو تلقائياً
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>عدد التحذيرات</InputLabel>
+            <Select
+              value={newWarningNumber}
+              label="عدد التحذيرات"
+              onChange={(e) => setNewWarningNumber(e.target.value)}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                <MenuItem key={num} value={num}>
+                  {num} {num === 1 ? 'تحذير' : 'تحذيرات'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight={600}>
+              ⚠️ تحذير مهم
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              عند تغيير هذا الرقم، سيتم <strong>حذف جميع التحذيرات الحالية</strong> لجميع الأعضاء وإعادة تعيين العداد إلى الصفر للجميع.
+            </Typography>
+          </Alert>
+
+          <Typography variant="body2" color="text.secondary">
+            💡 العدد الحالي: <strong>{groupData?.groupSettings?.warringNumbers || 3} تحذيرات</strong>
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setWarningNumberDialog(false)}
+            variant="outlined"
+            disabled={settingsLoading}
+          >
+            إلغاء
+          </Button>
+          <Button
+            onClick={handleWarningNumberUpdate}
+            variant="contained"
+            color="warning"
+            disabled={settingsLoading || newWarningNumber === (groupData?.groupSettings?.warringNumbers || 3)}
+            startIcon={settingsLoading ? <CircularProgress size={16} /> : <WarningIcon />}
+            sx={{ minWidth: 150 }}
+          >
+            {settingsLoading ? 'جاري التحديث...' : '⚠️ تأكيد التغيير'}
           </Button>
         </DialogActions>
       </Dialog>

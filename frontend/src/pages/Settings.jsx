@@ -21,7 +21,8 @@ import {
 } from '@mui/material'
 import {
   Block as BlockIcon,
-  ExpandMore as ExpandMoreIcon
+  ExpandMore as ExpandMoreIcon,
+  Favorite as FavoriteIcon
 } from '@mui/icons-material'
 import { getBlockedUsers, unblockUser, API_BASE } from '../lib/api'
 
@@ -52,6 +53,7 @@ export default function Settings() {
     }
   }
 
+
   const handleUnblock = async () => {
     if (!selectedUser) return
     
@@ -68,6 +70,7 @@ export default function Settings() {
       setProcessing(false)
     }
   }
+
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section)
@@ -232,6 +235,53 @@ export default function Settings() {
               )}
             </Box>
           </Collapse>
+        </Paper>
+
+        {/* Favorites Section */}
+        <Paper 
+          elevation={expandedSection === 'favorites' ? 4 : 1}
+          sx={{ 
+            borderRadius: 3,
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            border: expandedSection === 'favorites' ? '2px solid' : '1px solid',
+            borderColor: expandedSection === 'favorites' ? 'primary.main' : 'divider'
+          }}
+        >
+          <ListItemButton
+            onClick={() => navigate('/favorites')}
+            sx={{
+              p: 3,
+              '&:hover': { 
+                bgcolor: 'primary.50',
+                '& .MuiSvgIcon-root': { color: 'primary.main' }
+              }
+            }}
+          >
+            <Stack direction="row" alignItems="center" spacing={3} sx={{ flex: 1 }}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 2,
+                  bgcolor: 'primary.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <FavoriteIcon sx={{ fontSize: 32, color: 'primary.dark' }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="h6" fontWeight={700} mb={0.5}>
+                  المنشورات المفضلة
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  إدارة المنشورات التي أضفتها للمفضلة
+                </Typography>
+              </Box>
+            </Stack>
+          </ListItemButton>
         </Paper>
       </Stack>
 

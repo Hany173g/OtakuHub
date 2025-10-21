@@ -25,7 +25,7 @@ const checkData= ({content,title}) => {
 
 
 
-const checkPhoto = (file,next) => {
+const checkPhoto = (file ) => {
     const allowedTypes = ['image/jpeg', 'image/png'];
     if (file.size > 3000000)
     {
@@ -40,7 +40,7 @@ const checkPhoto = (file,next) => {
 }
 
 
-const checkGroupData = (groupName,description,photo,privacy,group,bool,bool2,next) => {
+const checkGroupData = (groupName,description,photo,privacy,group,bool,bool2 ) => {
     if (!groupName)
     {
            throw createError("يجب وضع اسم لي الجروب",400)
@@ -90,7 +90,7 @@ const checkGroupData = (groupName,description,photo,privacy,group,bool,bool2,nex
 
 
 
-const checkGroup = async(userData,groupName,next) => {
+const checkGroup = async(userData,groupName ) => {
      let group = await Groups.findOne({where:{name:groupName}});
         if (!group)
         {
@@ -115,7 +115,7 @@ const checkGroup = async(userData,groupName,next) => {
 
 // check if blog is find
 
-const checkBlog = async(id,next) => {
+const checkBlog = async(id ) => {
         let blog = await Blogs.findByPk(id);
            if (!blog)
            {
@@ -125,7 +125,7 @@ const checkBlog = async(id,next) => {
         }
 
 
-const checkAction = (action ,service,next) => {
+const checkAction = (action ,service ) => {
     if (service != 'comment' && service != 'blogs')
     {
            throw createError('يجب ان تختار حدث معين("comment or blogs")',400)
@@ -141,7 +141,7 @@ const checkAction = (action ,service,next) => {
 
 
 
-const checkBanned = async(userId,groupId,next) => {
+const checkBanned = async(userId,groupId ) => {
     let bannedUsers = await bannedUser.findOne({where:{userId,groupId}})
     
     if (bannedUsers)
@@ -155,7 +155,7 @@ const checkBanned = async(userId,groupId,next) => {
 
 
 
-const checkChangeRole = (role,owner,userRole,next) => {
+const checkChangeRole = (role,owner,userRole ) => {
     let requesterRole  = owner[0].GroupMember.role;
  
     if (role ==='Admin' && requesterRole !== "owner")
@@ -172,7 +172,7 @@ const checkChangeRole = (role,owner,userRole,next) => {
 
 
 
-const checkComment = async(id,next) => {
+const checkComment = async(id ) => {
     let comment = await commentsBlogs.findByPk(id)
     if (!comment)
     {
@@ -183,7 +183,7 @@ const checkComment = async(id,next) => {
 
 
 
-const updateProfileValdtion = async (user, newUsername, newEmail, newPassword,next) => {
+const updateProfileValdtion = async (user, newUsername, newEmail, newPassword ) => {
    
     let username = newUsername || user.username;
     let email = newEmail || user.email;
@@ -195,7 +195,7 @@ const updateProfileValdtion = async (user, newUsername, newEmail, newPassword,ne
 
 
 
-const checkDataMessage = async(username,content,user,next) => 
+const checkDataMessage = async(username,content,user ) => 
 {
     let friend = await User.findOne({where:{username}});
 
@@ -231,7 +231,7 @@ const checkDataMessage = async(username,content,user,next) =>
 
 
 
-const checkFriendRequestData = async(userId,friendId,next) => {
+const checkFriendRequestData = async(userId,friendId ) => {
         let[user,friend] = await Promise.all([
             User.findByPk(userId),
             User.findByPk(friendId),
@@ -249,7 +249,7 @@ const checkFriendRequestData = async(userId,friendId,next) => {
 
 
 
-const checkRole = async(role,owner,next) => {
+const checkRole = async(role,owner ) => {
     let userRole = owner[0].GroupMember.role;
     if (role === userRole)
     {
@@ -269,9 +269,9 @@ const checkRole = async(role,owner,next) => {
 
 
 
-const checkAcessMore = async(data,groupName,next) =>
+const checkAcessMore = async(data,groupName ) =>
 {
-      let user = await isUser(data,next);
+      let user = await isUser(data );
       if (!groupName)
       {
           throw createError("البينات ليست كامله",400)
@@ -293,7 +293,7 @@ const checkAcessMore = async(data,groupName,next) =>
 
 
 
-const userAction = async(groupName,id,data,next) => 
+const userAction = async(groupName,id,data ) => 
 {
        if (!id)
         {
@@ -318,18 +318,19 @@ const userAction = async(groupName,id,data,next) =>
 
 
 
-const checkGroupRole = async(blog,user,userId,next) => {
+const checkGroupRole = async(blog,user) => {
        let checkRole;
-       let groupId = blog.groupId
+    let groupId = blog.groupId
      if (groupId)
            {
               let group = await Groups.findByPk(groupId);
+              
               if (!group)
                 {
                      throw createError("هذا الجروب الجروب غير موجود",400)
                 }  
               let member = await group.getUsers({through:{where:{userId:user.id, role: { [Op.in]: ['Admin', 'owner', 'Moderator'] } }}})
-              let isOwnerBlog = blog.userId === userId;  
+              let isOwnerBlog = blog.userId === user.id;  
              if (member.length > 0 || isOwnerBlog)
                 {
                     checkRole = member[0]
@@ -353,9 +354,9 @@ const checkGroupRole = async(blog,user,userId,next) => {
 
 
 
-const checkAcess = async(data,groupName,next) =>
+const checkAcess = async(data,groupName ) =>
 {
-      let user = await isUser(data,next);
+      let user = await isUser(data );
       if (!groupName)
       {
         throw createError("البينات ليست كامله",400)
@@ -380,7 +381,7 @@ const checkAcess = async(data,groupName,next) =>
 
 
 
-const addLogger = async(group,userId,status,next) => {
+const addLogger = async(group,userId,status ) => {
     if (!group || !userId)
     {
           throw createError("البينات ليست كامله",400)
@@ -552,7 +553,7 @@ const checkBlogsStats = async(blogs) => {
 
 
 
-const checkPenningBlogData = async(data,groupName,blogId,next) => {
+const checkPenningBlogData = async(data,groupName,blogId ) => {
       if (!blogId)
         {
                  throw createError("البينات ليست كامله",400)
@@ -576,7 +577,7 @@ const checkPenningBlogData = async(data,groupName,blogId,next) => {
 
 
 
-const checkIsBlock = async(user,friend,next) => {
+const checkIsBlock = async(user,friend ) => {
         let block = await blocks.findOne({where:{
                 [Op.or]:[
                     {recivceBlock:user.id,sentBlock: friend.id},
@@ -592,11 +593,14 @@ const checkIsBlock = async(user,friend,next) => {
 
 
 
-const checkUpdateGroupSettingsData = async(publish,allowReports,warringNumbers,groupSettings,next) => {
+const checkUpdateGroupSettingsData = async(publish,allowReports,warringNumbers,groupSettings ) => {
   publish = publish ?? groupSettings.publish;
   warringNumbers = warringNumbers ?? groupSettings.warringNumbers  
   allowReports = allowReports ?? groupSettings.allowReports  
-  if (typeof publish !== "boolean"  || typeof allowReports !== "boolean" || typeof warringNumbers === "number")
+  console.log(typeof warringNumbers)
+  console.log(typeof publish)
+  console.log(typeof allowReports)
+  if (typeof publish !== "boolean"  || typeof allowReports !== "boolean" || typeof warringNumbers !== "number")
   {
     throw createError("البينات غير صحيحه",400)
   }
@@ -604,12 +608,13 @@ const checkUpdateGroupSettingsData = async(publish,allowReports,warringNumbers,g
   {
     throw createError("يجب ان يكون العدد اكبر من 1 واقل من 10")
   }
+
   return {publish,allowReports,warringNumbers}
 }
 
 
 
-const checkWarringData = (groupName,id,next) =>
+const checkWarringData = (groupName,id ) =>
 {
     if (!groupName || !id)
     {
@@ -627,7 +632,7 @@ const checkWarringData = (groupName,id,next) =>
 
 
 
-const checkWarringAcess = (warringUser,user,next) => {
+const checkWarringAcess = (warringUser,user ) => {
 
     if ( user.id == warringUser.id)
     {
@@ -641,7 +646,7 @@ const checkWarringAcess = (warringUser,user,next) => {
 
 
 
-const moderatorsAcess = async(groupName,userId,idWarringBy,next) => 
+const moderatorsAcess = async(groupName,userId,idWarringBy ) => 
     {
         let group = await Groups.findOne({where:{name:groupName}})
         if (!group)
@@ -663,46 +668,58 @@ const moderatorsAcess = async(groupName,userId,idWarringBy,next) =>
         user = user[0]
         warringUser = warringUser[0]
  
-        checkWarringAcess(warringUser,user,next)
-
-        return {warringUser,group};
+        checkWarringAcess(warringUser,user )
+        let warringUsers = warringUser
+        return {warringUsers,group};
     } 
 
 
 
 
-    const addNewWarring = async(userId,user,groupName,reason,next) => 
+    const addNewWarring = async(userId,user,groupName,reason ) => 
     {
-        let {warringUser,group} = await moderatorsAcess(groupName,userId,user.id,next);
-       let getWarring =  await group.getWarringUser({id:warringUser.id})
-  
+        let {warringUsers,group} = await moderatorsAcess(groupName,userId,user.id );
+       let getWarring =  await group.getWarringUsers({id:warringUsers.id})
+         let groupSettings = await group.getGroupSetting();
        if (getWarring.length > 0)
        {
          await getWarring[0].increment('warringNumbers', { by: 1 });
-         let groupSettings = await group.getGroupSetting();
-         if (getWarring[0].warringNumbers >= groupSettings.warringNumber)
+         if (getWarring[0].warringNumbers >= groupSettings.warringNumbers)
          {
               await GroupMember.destroy({
                 where:{
-                    userId:warringUser.id,
+                    userId:warringUsers.id,
                     groupId:group.id
                 }
             })
             await getWarring[0].destroy()  
              await bannedUser.create({userId:userId, groupId:group.id});
+           
          }
-      
+       
+         
        }
        else
        {
-        await warringUser.create({
+       let newWarring =  await warringUser.create({
             userId,
             groupId:group.id,
             warringNumbers: 1,
             reason,
             warnedBy:user.id
         })
+        getWarring = [newWarring]
        }
+       console.log(getWarring)
+       console.log(getWarring[0].warringNumbers >= groupSettings.warringNumbers)
+       if (getWarring[0].warringNumbers >= groupSettings.warringNumbers)
+       {
+         await group.decrement('numberMembers', { by: 1 });
+        await addLogger(group,user.id,"kick")
+       }
+       let warringNumbers = groupSettings.warringNumbers
+      let userWarring = getWarring.length > 0 ? getWarring[0].warringNumbers : 1;
+       return {warringNumbers,userWarring}
     }
 
 
@@ -713,7 +730,7 @@ const getBannedUsers = async(group) => {
     let bannedUsers = await group.getBannedUsers({include:{
         model:User,
         attributes:["id","username","photo"]
-    }});
+    },order:[['createdAt','DESC']]});
     return bannedUsers
 }
 
@@ -724,7 +741,7 @@ const getBannedUsers = async(group) => {
 
 
 
-const removeBanUser = async(group,id,next) => {
+const removeBanUser = async(group,id ) => {
     let banUser = await group.getBannedUsers({where:{id}})
     if (banUser.length < 1)
     {
@@ -736,9 +753,9 @@ const removeBanUser = async(group,id,next) => {
 
 
 
-const getLoggerUser = async(group,username,status,next) => 
+const getLoggerUser = async(group,username,status ) => 
 {
-
+ 
     if (!username)
     {
         throw createError("البينات ليست كامله",400)
@@ -761,10 +778,177 @@ const getLoggerUser = async(group,username,status,next) =>
 
 
 
+const getUserBanned = async(group,username) => {
+    let user = await User.findOne({where:{username}})
+    if (!user)
+    {
+        throw createError("لأ يوجد نتائج",400)
+    }
+    let userBan = await group.getBannedUsers({where:{userId:user.id},include:{
+        model:User,
+        attributes:["id","username","photo"]
+    },order:[['createdAt','DESC']]})
+    return userBan;
+}
+
+
+
+
+const getUserPenningBlogs = async(group,username) => {
+     let user = await User.findOne({where:{username}})
+    if (!user)
+    {
+       throw  createError("لأ توجد نتائج",400)
+    }
+    let penningBlogs = await group.getPenningBlogs({where:{userId:user.id},include:{
+        model:Blogs,
+        attributes:["id","title","content","photo"]
+    },order:[['createdAt','DESC']]})
+    return penningBlogs;
+}
+
+
+
+const getUserReports = async(group,username,service) => {
+ 
+     if (!["blog","comment"].includes(service))
+            {
+               throw  createError("هذا القيمه غير موجوده",400)
+            }
+     let serivceModel = service === "blog" ? Blogs : commentsBlogs
+        const attributesMap = {
+        blog: ['id', 'title', 'photo', 'content'],
+        comment: ['id', 'content', 'createdAt']
+        };
+        let user = await User.findOne({where:{username}});
+        if (!user)
+        {
+            throw createError("لأ يوجد نتائج",400)
+        }
+        let groupReports = await group.getReports({where:{service,userId:user.id},
+            include:[
+            {
+                model:User,
+                attributes:["id","username","photo"]
+            },
+            {
+              model:serivceModel,
+              attributes:attributesMap[service],
+              include:[
+                {
+                    model:User
+                }
+              ]
+            }
+        ],order:[['createdAt','DESC']]});
+    return groupReports;
+}
 
 
 
 
 
 
-module.exports = {getBannedUsers,getLoggerUser,removeBanUser,checkIsBlock,checkBanned,addNewWarring,moderatorsAcess,checkWarringData,addLogger,checkUpdateGroupSettingsData,checkBlogsStats,checkGroupStats,checkStatsUsers,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}
+
+
+
+
+const getHistoryDeleteUser = async(group,username,service) => {
+        let model = service === 'posts' ? Blogs : commentsBlogs
+     
+         if (!service ||!['blog','comment'].includes(service))
+        {
+            throw createError("البينات ليست كامله",400)
+        }
+        let historyDelete = await group.getHistoryDeleteGroups({where:{service,administratorDelete:username },order:[['createdAt','DESC']]})
+        return historyDelete;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+const checkAddFav = async(user,blogId) => {
+      if (!blogId)
+            {
+                throw createError("البينات ليست كامله",400)
+            }  
+           
+          let blog = await Blogs.findByPk(blogId)
+          if (!blog)
+          {
+            throw createError("هذا المنشور غير موجود",400)
+          }
+          let isFav = await user.getFavorites({where:{blogId}});
+          if (isFav.length > 0)
+          {
+            throw createError("تم اضافته الى المفضله بلفعل",400)
+          }
+          return isFav
+} 
+
+
+
+
+
+
+
+
+
+
+const changeWarringNumbers = async(group) => {
+   await warringUser.destroy({
+    where: { groupId: group.id }
+  });
+}
+
+
+
+
+const checkBlogGroup = async(user,Favorites) => {
+    const userGroups = await GroupMember.findAll({where:{userId:user.id},attributes:["groupId"],raw:true})
+      const groupsIds = userGroups.map(g => g.groupId);
+    let result = Favorites.map(fav => {
+        let isAccess = true
+        let favPlain = fav.get({plain:true})
+        let isGroup = favPlain.Blog.Group;
+
+       if (isGroup)
+        {
+               console.log(1)
+            if (isGroup.privacy === "private")
+            {
+                isAccess = groupsIds.includes(isGroup.id)
+                console.log(isAccess)
+            }
+            else
+            {
+                  return fav
+            }
+            if (isAccess)
+            {
+                return fav
+            }
+        } 
+        else
+        {
+            return fav
+        }
+        
+    } )
+    return result
+}
+
+
+
+
+
+
+module.exports = {checkAddFav,checkBlogGroup,changeWarringNumbers,getHistoryDeleteUser,getBannedUsers,getUserReports,getUserPenningBlogs,getUserBanned,getLoggerUser,removeBanUser,checkIsBlock,checkBanned,addNewWarring,moderatorsAcess,checkWarringData,addLogger,checkUpdateGroupSettingsData,checkBlogsStats,checkGroupStats,checkStatsUsers,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}

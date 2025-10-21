@@ -52,4 +52,15 @@ router.post('/getBlogs',blogContoller.getBlogs)
 
 router.post('/reportService',blogContoller.reportService)
 
+
+router.post('/addFavorite',blogContoller.addFavorite)
+
+
+
+
+router.post('/removeFavorite',blogContoller.removeFavorite)
+
+
+
+
 module.exports = router

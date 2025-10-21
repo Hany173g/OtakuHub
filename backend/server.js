@@ -10,7 +10,7 @@ const socketIo = require('socket.io')
 const cors = require('cors');
 const rateLimiting = require('./utils/rateLimiting')
 
-
+const cookieParser = require('cookie-parser');
 
 
 //web socket settings
@@ -23,6 +23,14 @@ const io = socketIo(server, {
     credentials: true
   }
 });
+
+
+
+
+
+
+
+app.use(cookieParser());
 
 
 io.OnlineUsers = {};

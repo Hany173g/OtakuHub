@@ -12,13 +12,44 @@ export const storage = {
   set user(val) { 
     if (val) localStorage.setItem('user', JSON.stringify(val))
     else localStorage.removeItem('user')
+  },
+  // Clear all auth data
+  clearAuth() {
+    this.token = null
+    this.user = null
   }
 }
 
 export const api = axios.create({
   baseURL: API_BASE,
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true // Enable cookies for refresh token
 })
+
+// Track refresh token promise to avoid multiple simultaneous refresh attempts
+let refreshTokenPromise = null
+let lastLoginTime = null
+
+// Helper function to decode JWT token (for debugging)
+const decodeToken = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const now = Date.now()
+    const expTime = payload.exp * 1000
+    const timeUntilExpiry = Math.max(0, expTime - now)
+    
+    // Token analysis removed for clean console
+    
+    return {
+      ...payload,
+      isExpired: now >= expTime,
+      expiresAt: new Date(expTime).toISOString(),
+      timeUntilExpiry
+    }
+  } catch (error) {
+    return null
+  }
+}
 
 api.interceptors.request.use((config) => {
   const token = storage.token
@@ -35,7 +66,12 @@ api.interceptors.response.use(
     // Success responses (2xx)
     return response
   },
-  (error) => {
+  async (error) => {
+    const currentToken = storage.token
+    const tokenInfo = currentToken ? decodeToken(currentToken) : null
+    
+    // Silent handling for all API responses - no console logging
+    
     // Handle different error scenarios
     if (error.response) {
       // Server responded with error status
@@ -47,31 +83,131 @@ api.interceptors.response.use(
       // Handle specific status codes
       switch (status) {
         case 401:
-          // Unauthorized - clear auth data and redirect to login
-          storage.token = null
-          storage.user = null
-          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-            window.location.href = '/login'
+          // Don't try refresh token for auth requests - just let them fail normally
+          if (error.config.url?.includes('/auth/login') || 
+              error.config.url?.includes('/auth/register') || 
+              error.config.url?.includes('/auth/refreshToken') ||
+              error.config.url?.includes('/api/isAuth')) {
+            // For auth requests, don't clear storage or redirect - let the component handle it
+            // Silent fail for auth requests
+            break
+          }
+          
+          // Unauthorized - try refresh token first (only for protected routes)
+          if (!error.config._retry && storage.token) {
+            error.config._retry = true
+            
+            // If user just logged in (within last 2 seconds), don't refresh immediately
+            // But allow refresh if token is actually expired or invalid
+            if (lastLoginTime && (Date.now() - lastLoginTime) < 2000 && !tokenInfo?.isExpired) {
+              // Skip refresh - user just logged in
+              break
+            }
+            
+            // If there's already a refresh in progress, wait for it
+            if (refreshTokenPromise) {
+              // Wait for existing refresh token request
+              try {
+                await refreshTokenPromise
+                // Retry with the new token
+                error.config.headers['Authorization'] = storage.token
+                return api(error.config)
+              } catch (refreshError) {
+                return Promise.reject(refreshError)
+              }
+            }
+            
+            // Start new refresh token request
+            refreshTokenPromise = axios.post(`${API_BASE}/api/auth/refreshToken`, {}, {
+              withCredentials: true,
+              timeout: 10000 // 10 second timeout
+            })
+            
+            try {
+              const refreshResponse = await refreshTokenPromise
+              
+              // Update the access token
+              const newAccessToken = refreshResponse.data.acessToken
+              if (!newAccessToken) {
+                throw new Error('No access token in refresh response')
+              }
+              
+              storage.token = newAccessToken
+              
+              // Clear the promise
+              refreshTokenPromise = null
+              
+              // Retry the original request with new token
+              error.config.headers['Authorization'] = newAccessToken
+              return api(error.config)
+              
+            } catch (refreshError) {
+              // Clear the promise
+              refreshTokenPromise = null
+              
+              // If refresh token fails, call logout to clear httpOnly cookie
+              
+              // Call logout API to clear httpOnly cookie
+              try {
+                await axios.post(`${API_BASE}/api/auth/logout`, {}, {
+                  withCredentials: true
+                })
+              } catch (logoutError) {
+                // Silent fail for logout API
+              }
+              
+              // Clear client-side auth data
+              storage.clearAuth()
+              
+              // Redirect to login only if not already on auth pages
+              if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+                window.location.href = '/login'
+              }
+              return Promise.reject(refreshError)
+            }
+          } else {
+            // If no token available, call logout to clear any remaining cookies
+            
+            // Call logout API to clear httpOnly cookie
+            try {
+              await axios.post(`${API_BASE}/api/auth/logout`, {}, {
+                withCredentials: true
+              })
+            } catch (logoutError) {
+              // Silent fail for logout API
+            }
+            
+            // Clear client-side auth data
+            storage.clearAuth()
+            
+            // Redirect to login only if not already on auth pages
+            if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+              window.location.href = '/login'
+            }
           }
           break
+        case 400:
+          // Bad Request - Don't trigger auth logic for isAuth endpoint
+          if (error.config.url?.includes('/api/isAuth')) {
+            // Silent fail for isAuth - no logging needed
+            break
+          }
+          // 400 errors are validation messages - no logging needed
+          break
         case 403:
-          // Forbidden
-          console.error('❌ Access denied:', message)
+          // Forbidden - silent handling
           break
         case 404:
-          // Not found
-          console.error('❌ Resource not found:', message)
+          // Not found - usually validation message (user not found) - no logging needed
           break
         case 422:
-          // Validation error
-          console.error('❌ Validation error:', message)
+          // Validation error - no logging needed
           break
         case 500:
-          // Server error
-          console.error('❌ Server error:', message)
+          // Server error - silent handling
           break
         default:
-          console.error(`❌ Error ${status}:`, message)
+          // Silent handling for all status codes
       }
       
       // Create standardized error object
@@ -94,7 +230,32 @@ api.interceptors.response.use(
 
 // Auth
 export const register = (data) => api.post('/api/auth/register', data)
-export const login = (data) => api.post('/api/auth/login', data)
+export const loginUser = async (data) => {
+  const response = await api.post('/api/auth/login', data)
+  // Update last login time to prevent immediate refresh attempts
+  lastLoginTime = Date.now()
+  
+  // Token analysis removed for clean console
+  
+  return response
+}
+export const refreshToken = () => api.post('/api/auth/refreshToken')
+
+// Logout function that clears both client and server-side auth
+export const logoutUser = async () => {
+  try {
+    // Call backend logout to clear refresh token cookie
+    await api.post('/api/auth/logout')
+  } catch (error) {
+    // Silent fail for logout API
+  } finally {
+    // Always clear client-side auth data
+    storage.clearAuth()
+    // Redirect to login page
+    window.location.href = '/login'
+  }
+}
+// Check if user is authenticated - this is for UI state only, not for auth logic
 export const isAuth = () => api.get('/api/isAuth')
 
 // Password reset
@@ -166,7 +327,7 @@ export const reportService = (service, serviceId, content) => api.post('/api/rep
 export const getPendingBlogs = (groupName) => api.post('/api/group/getBlogsPenning', { groupName })
 export const acceptPendingBlog = (groupName, blogId) => api.post('/api/group/acceptBlogPenned', { groupName, blogId })
 export const cancelPendingBlog = (groupName, blogId) => api.post('/api/group/cancelBlogPenned', { groupName, blogId })
-export const updateGroupSettings = (groupName, publish, allowReports) => api.post('/api/group/updateGroupSettings', { groupName, publish, allowReports })
+export const updateGroupSettings = (groupName, publish, allowReports, warringNumbers) => api.post('/api/group/updateGroupSettings', { groupName, publish, allowReports, warringNumbers })
 export const cancelJoinGroup = (groupName) => api.post('/api/cancelJoinGroup', { groupName })
 export const getPendingUsers = (groupName) => api.get('/api/getPendingUsers', { params: { groupName } })
 export const acceptUser = (groupName, id) => api.post('/api/group/acceptUser', { groupName, id })
@@ -183,6 +344,28 @@ export const updateGroupData = (formData) => api.post('/api/group/updateGroupDat
 })
 export const deleteGroup = (groupName) => api.post('/api/group/deleteGroup', { groupName })
 export const changeOwner = (groupName, newOwner) => api.post('/api/group/changeOwner', { groupName, newOwner })
+
+// Group search functions
+export const searchLogger = (groupName, username, status) => api.post('/api/group/searchUserLogger', { groupName, username, status })
+export const searchHistoryDelete = (groupName, username, service) => api.post('/api/group/searchHistoryDelete', { groupName, username, service })
+export const searchReports = (groupName, username, service) => api.post('/api/group/searchUserReports', { groupName, username, service })
+
+// Warning system functions
+export const addWarning = (groupName, userId, message) => api.post('/api/group/addNewWarring', { groupName, userId, message })
+
+// Banned users functions  
+// Note: Backend route is GET but controller expects req.body - trying query params
+export const getBannedUsers = (groupName) => api.get('/api/group/getBannedUser', {
+  params: { groupName }
+})
+export const removeBannedUser = (groupName, id) => api.post('/api/group/removeBannedUser', { groupName, id })
+export const searchBannedUser = (groupName, username) => api.post('/api/group/searchUserBan', { groupName, username })
+
+// Favorites functions
+export const addFavorite = (blogId) => api.post('/api/addFavorite', { blogId })
+export const removeFavorite = (blogId) => api.post('/api/removeFavorite', { blogId })
+export const getFavorites = () => api.get('/api/getFavorite')
+
 export const blockUser = (username) => api.post(`/api/profile/${username}/blockUser`)
 export const getBlockedUsers = () => api.get('/api/profile/getBlocks')
 export const unblockUser = (username) => api.post(`/api/profile/${username}/cancelBlock`)

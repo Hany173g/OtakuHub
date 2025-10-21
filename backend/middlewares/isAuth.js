@@ -13,18 +13,20 @@ let isAuth = (req,res,next) => {
             return next();
         }
         let token = authHeader;
-        let JWT_SECERT = process.env.JWT_SECERT;
-        let decode = jwt.verify(token,JWT_SECERT)
+        let JWT_SECERT = process.env.JWT_SECERT_ACCESS_TOKEN;
+       
+        
+        let decode = jwt.verify(token, JWT_SECERT)
+   
+    
         req.user = decode;
         next();
-    }catch
+    }catch(err)
     {
+        
         req.user = null;
         next()
     }
 }
-
-
-
 
 module.exports = isAuth

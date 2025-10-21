@@ -1,5 +1,5 @@
 
-const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend,blocks} = require('../models/Relationships')
+const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend,blocks,Favorite, Groups, GroupMember} = require('../models/Relationships')
 
 
 const {getBlogs} = require('../service/getBlogs')
@@ -9,10 +9,10 @@ const {isUser} =require('../utils/isUser')
 const {userRelations} = require('../utils/friendStatus')
 
 
-const {Op, where} = require('sequelize')
+const {Op, where, Model} = require('sequelize')
 
 const {valdtionData,checkUserData,valdtionDataUpdate} = require('../utils/auth')
-const{updateProfileValdtion,checkPhoto,checkIsBlock} = require('../utils/checkData')
+const{updateProfileValdtion,checkPhoto,checkIsBlock,checkBlogGroup} = require('../utils/checkData')
 
 
 const {createError} = require('../utils/createError')
@@ -392,6 +392,41 @@ exports.removeBlock = async(req,res,next) => {
     }
 }
 
+
+
+
+
+
+
+
+
+
+exports.getFavorite = async(req,res,next) => {
+    try{
+         let user = await isUser(req.user,next)
+         let Favorites = await user.getFavorites({limit:20,include:{
+            model:Blogs,
+            attributes:["photo","title","content","id","createdAt"],
+           include: [  
+                {
+                    model: User,
+                    attributes: ["id","username","photo"]
+                },
+                {
+                    model: Groups,
+                    attributes: ["privacy","id"]
+                }
+            ]
+        
+         }});
+        let result =  await checkBlogGroup(user,Favorites)
+        res.status(200).json({Favorites:result})
+    }catch(err)
+    {
+        console.log(err.message)
+        next(err)
+    }
+}
 
 
 

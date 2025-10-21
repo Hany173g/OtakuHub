@@ -1,10 +1,10 @@
-const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile, commentsBlogs} = require('../models/Relationships')
+const{User,Blogs,penningBlogs,GroupMember,report,groupSettings,Groups,nestedComments,Favorite,historyDeleteGroup,dislikesBlogs,BlogStats, ccommentsBlogs, commentStats, likesComments, likesBlogs, dislikeComments, Profile, commentsBlogs} = require('../models/Relationships')
 
 const {createError} = require('../utils/createError')
 
 
 const {isUser} =require('../utils/isUser')
-const {checkData,checkReportData,checkBlog,checkComment,checkGroupRole,checkAction} =require('../utils/checkData')
+const {checkData,checkReportData,checkBlog,checkAddFav,checkComment,checkGroupRole,checkAction} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
 
 const {createBlog} = require('../service/blogService')
@@ -249,7 +249,8 @@ exports.deleteComment = async(req,res,next) => {
               throw createError("هذا التعليق غير موجود",400)
             } 
         let blog = await Blogs.findOne({ where: { id: comment.blogId } });
-            let {checkRole,group} = await checkGroupRole(blog.groupId,user)
+      
+            let {checkRole,group} = await checkGroupRole(blog,user)
            if (checkRole)
            {
              await createHistoryGroup(blog,user,group,"comment")
@@ -278,9 +279,10 @@ exports.reportService = async(req,res,next) => {
         let user =   await  isUser(req.user,next)
         const {service,serviceId,content} = req.body;
         let {serviceData,group} = await checkReportData(service,serviceId,user,content,next)
-        let groupSettings = await group.getGroupSetting();
+       
         if (group)
         {
+             let groupSettings = await group.getGroupSetting();
               if (!groupSettings.allowReports)
                 {
                     throw createError("قام المشرف بمن البلأغات",400)
@@ -293,6 +295,7 @@ exports.reportService = async(req,res,next) => {
         res.status(201).json({groupSettingsReport:groupSettings.allowReports});
     }catch(err)
     {
+        console.log(err.message)
           next(err)
     }
 }
@@ -300,6 +303,47 @@ exports.reportService = async(req,res,next) => {
 
 
 
+
+
+
+
+
+exports.addFavorite = async(req,res,next) => {
+    try{
+          let user =   await  isUser(req.user,next)
+          const {blogId} = req.body;
+            await checkAddFav(user,blogId)
+            let addFav = await user.createFavorite({blogId})
+          res.status(201).json()
+    }catch(err)
+    {
+        console.log(err.message)
+        next(err)
+    }
+}
+
+
+
+exports.removeFavorite = async(req,res,next) => {
+    try{
+        let user =   await  isUser(req.user,next)
+        const {blogId} = req.body;
+        if (!blogId)
+        {
+            throw createError("البينات ليست كامله")
+        }
+      let isFav = await user.getFavorites({where:{blogId}});
+      if (isFav < 1)
+      {
+        throw createError("انت لم تقم بلفعل بوضعه بي المفضله",400)
+      }
+      await isFav[0].destroy();
+      res.status(201).json()
+    }catch(err)
+    {
+        next(err)
+    }
+}
 
 
 

@@ -8,6 +8,7 @@ import Chat from './pages/Chat'
 import Groups from './pages/Groups'
 import GroupDetails from './pages/GroupDetails'
 import Settings from './pages/Settings'
+import FavoritesPage from './pages/FavoritesPage'
 import GroupDashboard from './pages/GroupDashboard'
 import GroupRules from './pages/GroupRules'
 import SearchPage from './pages/SearchPage'
@@ -131,6 +132,7 @@ export default function App() {
                   <Route path="/groups/:groupName/rules" element={<GroupRules />} />
                   <Route path="/profile/:username" element={<Profile />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/favorites" element={<FavoritesPage />} />
                   <Route path="/chat/:username" element={<Chat />} />
                   <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
                   <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />

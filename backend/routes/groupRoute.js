@@ -113,6 +113,19 @@ router.get('/group/getBannedUser',groupContoller.getBannedUsers)
 router.post('/group/removeBannedUser',groupContoller.removeBannedUser)
 
 
+router.post('/group/searchUserBan',groupContoller.searchUserBan)
 
+
+
+
+
+
+router.post('/group/searchUserReports',groupContoller.searchReports)
+
+
+
+
+
+router.post('/group/searchHistoryDelete',groupContoller.searchHistoryDelete)
 
 module.exports = router

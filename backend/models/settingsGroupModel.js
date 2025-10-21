@@ -31,7 +31,12 @@ const groupSettings = sequelize.define('groupSettings', {
     groupId:{
         type:DataTypes.INTEGER,
         allowNull:false
+    },
+    warringNumbers:{
+        type:DataTypes.INTEGER,
+        defaultValue:3
     }
+
 },{
     tableName:"groupSettings",
     timestamps:true

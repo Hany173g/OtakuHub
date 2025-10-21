@@ -130,12 +130,6 @@ let comparePassword = async(password,userPassword,next) => {
 
 
 
-let createToken = (name,id) => {
-    let token = jwt.sign({name,id},process.env.JWT_SECERT,{expiresIn:'5d'});
-    return token
-}
-
-
 
 let randomToken = () => {
    
@@ -150,4 +144,22 @@ let randomToken = () => {
 
 
 
-module.exports  = {checkUserData,hashPassword,valdtionDataUpdate,valdtionData,comparePassword,createToken,randomToken,checkResetData} 
+
+const createAcessToken = (name,id) => {
+    let token = jwt.sign({name,id},process.env.JWT_SECERT_ACCESS_TOKEN,{expiresIn:'60m'});
+    return token
+}
+
+
+
+
+
+
+const createRefreshToken = (name,id) => {
+    let token = jwt.sign({name,id},process.env.JWT_SECERT_REFRESH_TOKEN,{expiresIn:'15d'});
+    return token
+}
+
+
+
+module.exports  = {checkUserData,hashPassword,createRefreshToken,valdtionDataUpdate,valdtionData,comparePassword,createAcessToken,randomToken,checkResetData} 

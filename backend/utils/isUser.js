@@ -17,7 +17,7 @@ const{createError} = require('./createError')
 
 
 
-const isUser = async(userData,next) => {
+const isUser = async(userData) => {
         if (!userData)
         {
            throw createError("يحب تسجيل الدخول",401)

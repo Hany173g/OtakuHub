@@ -2,7 +2,7 @@ const{User,Blogs,GroupMember,historyDeleteGroup,penningBlogs,warringGroup,groupS
 
 
 const {isUser} =require('../utils/isUser')
-const {checkGroupData,checkWarringData,moderatorsAcess,getLoggerUser,removeBanUser,checkBanned,addNewWarring,checkUpdateGroupSettingsData,getBannedUsers,checkGroup,checkRole,addLogger, checkPenningBlogData,checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
+const {checkGroupData,checkWarringData,changeWarringNumbers,getUserPenningBlogs,getHistoryDeleteUser,getUserReports,moderatorsAcess,getUserBanned,getLoggerUser,removeBanUser,checkBanned,addNewWarring,checkUpdateGroupSettingsData,getBannedUsers,checkGroup,checkRole,addLogger, checkPenningBlogData,checkGroupRole,checkChangeRole,checkAcess,userAction, checkAcessMore} =require('../utils/checkData')
 const {Like_Dislike} = require('../utils/stats')
 
 
@@ -538,6 +538,7 @@ const checkUpdateGroup = (description,privacy,group) =>{
 
 
 exports.updateGroupData = async(req,res,next) => {
+     const t = await sequelize.transaction();
     try{
         const{groupName,description,privacy} = req.body;
         let data = await checkAcess(req.user,groupName);
@@ -547,16 +548,19 @@ exports.updateGroupData = async(req,res,next) => {
        if (req.file)
         {
             checkGroupData(groupName,desc,req.file,priv,group,true,false,next)  
-            await group.update({description:desc,privacy:priv,photo:req.file.filename})
+            await group.update({description:desc,privacy:priv,photo:req.file.filename},{transaction:t})
         }  
         else
         {
             checkGroupData(groupName,desc,null,priv,group,false,false,next)  
-             await group.update({description:desc,privacy:priv})
+             await group.update({description:desc,privacy:priv},{transaction:t})
         }
+       
+        await t.commit()
        res.status(200).json();
     }catch(err)
     {
+        await t.rollback()
       next(err)
     }
 }
@@ -755,7 +759,7 @@ exports.updateGroupSettings = async(req,res,next) => {
         const {groupName,publish,allowReports,warringNumbers} = req.body;
           
         let {group} = await checkAcessMore(req.user,groupName,next)   
-      
+        let check = warringNumbers
         let groupSettings = await group.getGroupSetting();
         if (!groupSettings)
         {
@@ -763,7 +767,14 @@ exports.updateGroupSettings = async(req,res,next) => {
         }
         
         let data = await checkUpdateGroupSettingsData(publish,allowReports,warringNumbers,groupSettings,next)
+    
        let newSettings =  await groupSettings.update(data)
+      console.log(check)
+       if (check)
+       {
+        console.log(44)
+         await changeWarringNumbers(group);
+       }
         res.status(201).json(newSettings)
     }catch(err)
     {
@@ -836,10 +847,11 @@ exports.addWarring = async(req,res,next) => {
        const{groupName,userId,message} = req.body;
        checkWarringData(groupName,userId,next)
        let reason = message ?? "لم يتم تحديد سبب"
-       await addNewWarring(userId,user,groupName,reason,next)
-       res.status(201).json()
+        const {warringNumbers,userWarring}= await addNewWarring(userId,user,groupName,reason,next)
+       res.status(201).json({warringNumbers,userWarring})
     }catch(err)
     {
+        console.log(err.message)
         next(err)
     }
 }
@@ -856,12 +868,13 @@ exports.addWarring = async(req,res,next) => {
 exports.getBannedUsers = async(req,res,next) => {
     try{
         
-        let {groupName} = req.body;
+        let {groupName} = req.query;
         let {group} = await checkAcessMore(req.user,groupName,next)   
         let bannedGroupUsers = await getBannedUsers(group);
         res.status(200).json({bannedGroupUsers})
     }catch(err)
     {
+        console.log(err.message)
         next(err)
     }
 }
@@ -878,13 +891,69 @@ exports.getBannedUsers = async(req,res,next) => {
 
 exports.removeBannedUser = async(req,res,next) => {
     try{
+        let user = await isUser(req.user,next); 
         let {groupName,id}  = req.body;
         let {group} = await checkAcessMore(req.user,groupName,next)   
-        await removeBanUser(group,id,next);
+        await removeBanUser(group,id,user,next);
         res.status(201).json();
     }catch(err)
     {
+        
+        next(err)
+    }
+}
 
+
+
+
+
+exports.searchUserBan = async(req,res,next) => {
+    try{
+        let {groupName,username} = req.body;
+         let {group} = await checkAcessMore(req.user,groupName,next)  
+         let userBan = await getUserBanned(group,username)
+         res.status(200).json({userBan})
+    }catch(err)
+    {
+        console.log(err.message)
+        next(err)
+    }
+}
+
+
+
+
+
+exports.searchPenningBlogs = async(req,res,next) => {
+    try{
+        let {groupName,username} = req.body;
+        let {group} = await checkAcessMore(req.user,groupName,next)  
+        let penningBlogs = await getUserPenningBlogs(group,username);
+        res.status(200).json({penningBlogs})
+    }catch(err)
+    {
+        console.log(err.message)
+        next(err)
+    }
+}
+
+
+
+
+
+
+
+exports.searchReports = async(req,res,next) => {
+    try{
+        let {groupName,username,service} = req.body;
+        let {group} = await checkAcessMore(req.user,groupName,next)  
+        let userReports = await getUserReports(group,username,service)
+        res.status(200).json({userReports})
+    }catch(err)
+    {
+        
+        console.log(err.message)
+        next(err)
     }
 }
 
@@ -895,3 +964,18 @@ exports.removeBannedUser = async(req,res,next) => {
 
 
 
+
+
+exports.searchHistoryDelete = async(req,res,next) => {
+    try{
+         let {groupName,username,service} = req.body;
+        let {group} = await checkAcessMore(req.user,groupName,next)  
+        let userHistoryDelete = await getHistoryDeleteUser(group,username,service)
+   
+        res.status(200).json({userHistoryDelete})
+    }catch(err)
+    {
+        console.log(err.message)
+        next(err)
+    }
+}
