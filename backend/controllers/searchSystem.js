@@ -24,7 +24,7 @@ exports.seacrchEngine = async(req,res,next) => {
          user = await User.findOne({where:{id:req.user.id}})
         }
         const users = await User.findAll({
-            where:Sequelize.literal(`MATCH (username) AGAINST ('+${value}*' IN BOOLEAN MODE)`),attributes:["id","username"]
+            where:Sequelize.literal(`MATCH (username) AGAINST ('+${value}*' IN BOOLEAN MODE)`),attributes:["id","username","photo","verified"]
         })
         const blogs = await Blogs.findAll({
             where:
@@ -49,6 +49,7 @@ exports.seacrchEngine = async(req,res,next) => {
         res.status(200).json({userStats,blogsData,groupsStats});
     }catch(err)
     {
+        console.log(err.message)
        next(err)
     }
 }

@@ -1,6 +1,13 @@
 import axios from 'axios'
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// Base API configuration  
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000'
+
+// Global toast function (will be set by App component)
+let globalToast = null
+export const setGlobalToast = (toastFn) => {
+  globalToast = toastFn
+}
 
 export const storage = {
   get token() { return localStorage.getItem('token') },
@@ -83,13 +90,34 @@ api.interceptors.response.use(
       // Handle specific status codes
       switch (status) {
         case 401:
-          // Don't try refresh token for auth requests - just let them fail normally
-          if (error.config.url?.includes('/auth/login') || 
-              error.config.url?.includes('/auth/register') || 
-              error.config.url?.includes('/auth/refreshToken') ||
-              error.config.url?.includes('/api/isAuth')) {
-            // For auth requests, don't clear storage or redirect - let the component handle it
-            // Silent fail for auth requests
+          // Handle like/dislike/comment actions for guests - FIRST PRIORITY
+          if (error.config.url?.includes('/addLikeBlog') || 
+              error.config.url?.includes('/addDislikeBlog') || 
+              error.config.url?.includes('/addLikeComment') || 
+              error.config.url?.includes('/adddisLikeComment') || 
+              error.config.url?.includes('/removelike') || 
+              error.config.url?.includes('/removeDislike') || 
+              error.config.url?.includes('/addComment') || 
+              error.config.url?.includes('/addFavorite') || 
+              error.config.url?.includes('/removeFavorite')) {
+            
+            console.log('🚫 Guest interaction blocked')
+            
+            // Show message
+            if (globalToast) {
+              globalToast('يجب تسجيل الدخول أولاً للتفاعل مع المنشورات', 'warning', 4000)
+            } else {
+              alert('يجب تسجيل الدخول أولاً للتفاعل مع المنشورات')
+            }
+            
+            // STOP EVERYTHING - don't continue to any other logic
+            const stopError = new Error('Guest action blocked')
+            stopError.isGuestBlocked = true
+            return Promise.reject(stopError)
+          }
+          
+          // Handle auth requests silently
+          if (error.config.url?.includes('/auth/') || error.config.url?.includes('/api/isAuth')) {
             break
           }
           
@@ -120,7 +148,7 @@ api.interceptors.response.use(
             // Start new refresh token request
             refreshTokenPromise = axios.post(`${API_BASE}/api/auth/refreshToken`, {}, {
               withCredentials: true,
-              timeout: 10000 // 10 second timeout
+              timeout: 15000 // 15 second timeout
             })
             
             try {
@@ -156,12 +184,22 @@ api.interceptors.response.use(
                 // Silent fail for logout API
               }
               
+              // Stop refresh timer
+              stopFrontendTokenRefresh()
+              
               // Clear client-side auth data
               storage.clearAuth()
               
+              // Show user-friendly message
+              if (globalToast) {
+                globalToast('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى', 'warning', 5000)
+              }
+              
               // Redirect to login only if not already on auth pages
               if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-                window.location.href = '/login'
+                setTimeout(() => {
+                  window.location.href = '/login'
+                }, 2000) // Give time for toast message
               }
               return Promise.reject(refreshError)
             }
@@ -195,7 +233,15 @@ api.interceptors.response.use(
           // 400 errors are validation messages - no logging needed
           break
         case 403:
-          // Forbidden - silent handling
+          // Forbidden - could be ban message
+          if (message && message.includes('قام المشرف بحظرك')) {
+            // Show ban message to user
+            if (globalToast) {
+              globalToast(`🚫 ${message}`, 'error', 8000) // Show for 8 seconds
+            } else {
+              alert(`🚫 ${message}`) // Fallback to alert
+            }
+          }
           break
         case 404:
           // Not found - usually validation message (user not found) - no logging needed
@@ -235,6 +281,9 @@ export const loginUser = async (data) => {
   // Update last login time to prevent immediate refresh attempts
   lastLoginTime = Date.now()
   
+  // Start automatic token refresh
+  startFrontendTokenRefresh()
+  
   // Token analysis removed for clean console
   
   return response
@@ -244,6 +293,8 @@ export const refreshToken = () => api.post('/api/auth/refreshToken')
 // Logout function that clears both client and server-side auth
 export const logoutUser = async () => {
   try {
+    // Stop refresh timer
+    stopFrontendTokenRefresh()
     // Call backend logout to clear refresh token cookie
     await api.post('/api/auth/logout')
   } catch (error) {
@@ -261,6 +312,68 @@ export const isAuth = () => api.get('/api/isAuth')
 // Password reset
 export const requestReset = (data) => api.post('/api/auth/forget-password/', data)
 export const resetPassword = (data) => api.post('/api/auth/forget-password/resetPassword', data)
+
+// Search user blogs
+export const searchUserBlogs = (username, value) => api.post('/api/searchUserBlogs', { username, value })
+
+// Proactive token refresh for frontend
+let frontendRefreshInterval = null
+
+export const startFrontendTokenRefresh = () => {
+  if (frontendRefreshInterval) clearInterval(frontendRefreshInterval)
+  
+  // Only start if user is logged in
+  if (!storage.token) return
+  
+  // Start immediately with a small delay
+  setTimeout(async () => {
+    if (storage.token) {
+      try {
+        await axios.post(`${API_BASE}/api/auth/refreshToken`, {}, {
+          withCredentials: true,
+          timeout: 15000
+        }).then(response => {
+          if (response.data.acessToken) {
+            storage.token = response.data.acessToken
+            console.log('✅ Frontend token refreshed proactively')
+          }
+        })
+      } catch (error) {
+        console.log('❌ Frontend proactive refresh failed:', error.message)
+      }
+    }
+  }, 10000) // 10 seconds after login
+  
+  frontendRefreshInterval = setInterval(async () => {
+    if (storage.token) {
+      try {
+        const response = await axios.post(`${API_BASE}/api/auth/refreshToken`, {}, {
+          withCredentials: true,
+          timeout: 15000
+        })
+        
+        if (response.data.acessToken) {
+          storage.token = response.data.acessToken
+          console.log('✅ Frontend token refreshed automatically')
+        }
+      } catch (error) {
+        console.log('❌ Frontend auto refresh failed:', error.message)
+        clearInterval(frontendRefreshInterval)
+        frontendRefreshInterval = null
+      }
+    } else {
+      clearInterval(frontendRefreshInterval)
+      frontendRefreshInterval = null
+    }
+  }, 25 * 60 * 1000) // 25 minutes
+}
+
+export const stopFrontendTokenRefresh = () => {
+  if (frontendRefreshInterval) {
+    clearInterval(frontendRefreshInterval)
+    frontendRefreshInterval = null
+  }
+}
 
 // Blogs
 export const getBlogs = (lastNumber = 0) => api.post('/api/getBlogs', { lastNumber })
@@ -370,4 +483,30 @@ export const blockUser = (username) => api.post(`/api/profile/${username}/blockU
 export const getBlockedUsers = () => api.get('/api/profile/getBlocks')
 export const unblockUser = (username) => api.post(`/api/profile/${username}/cancelBlock`)
 export const getNotifications = () => api.get('/api/getNotication')
+export const markNotificationsAsRead = (ids) => api.post('/api/markNotfcsRead', { ids })
+export const getBroadcastNotifications = () => api.post('/api/getBroadCastNotfcs')
+export const markBroadcastNotificationsAsRead = (ids) => api.post('/api/markBroadCastNotfcsRead', { ids })
 export const search = (value, lastNumber = 0) => api.post('/api/search', { value, lastNumber })
+
+// Visitor tracking
+export const addVisitorData = async (url) => {
+  try {
+    await api.post('/api/addUserData', { url })
+  } catch (error) {
+    // Silent fail for visitor tracking
+  }
+}
+
+// Last seen tracking
+export const addLastSeen = async () => {
+  try {
+    console.log('🕒 Recording last seen...')
+    const response = await api.post('/api/addLastSeen')
+    console.log('✅ Last seen recorded successfully:', response.data)
+  } catch (error) {
+    console.error('❌ Failed to record last seen:', error.response?.data || error.message)
+  }
+}
+
+// Export API_BASE for components that need it
+export { API_BASE }

@@ -13,17 +13,26 @@ let isAuth = (req,res,next) => {
             return next();
         }
         let token = authHeader;
-        let JWT_SECERT = process.env.JWT_SECERT_ACCESS_TOKEN;
-       
         
-        let decode = jwt.verify(token, JWT_SECERT)
-   
-    
-        req.user = decode;
+        // Check if this is a dashboard route
+        let JWT_SECRET;
+        if (req.originalUrl && req.originalUrl.includes('/dashboard')) {
+            JWT_SECRET = process.env.JWT_SECERT_ACCESS_TOKEN_DASHBOARD;
+        } else {
+            JWT_SECRET = process.env.JWT_SECERT_ACCESS_TOKEN;
+        }
+        
+        // Only verify token if we have one
+        if (token && JWT_SECRET) {
+            let decode = jwt.verify(token, JWT_SECRET)
+            req.user = decode;
+        } else {
+            req.user = null;
+        }
+        
         next();
     }catch(err)
     {
-        
         req.user = null;
         next()
     }

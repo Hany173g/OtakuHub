@@ -22,7 +22,8 @@ import {
 import {
   Block as BlockIcon,
   ExpandMore as ExpandMoreIcon,
-  Favorite as FavoriteIcon
+  Favorite as FavoriteIcon,
+  Verified as VerifiedIcon
 } from '@mui/icons-material'
 import { getBlockedUsers, unblockUser, API_BASE } from '../lib/api'
 
@@ -198,17 +199,28 @@ export default function Settings() {
                           {user.username?.[0]?.toUpperCase()}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
-                          <Typography 
-                            variant="h6" 
-                            fontWeight={700}
-                            sx={{ 
-                              cursor: 'pointer',
-                              '&:hover': { color: 'primary.main' }
-                            }}
-                            onClick={() => navigate(`/profile/${user.username}`)}
-                          >
-                            {user.username}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography 
+                              variant="h6" 
+                              fontWeight={700}
+                              sx={{ 
+                                cursor: 'pointer',
+                                '&:hover': { color: 'primary.main' }
+                              }}
+                              onClick={() => navigate(`/profile/${user.username}`)}
+                            >
+                              {user.username}
+                            </Typography>
+                            {user.verified && (
+                              <VerifiedIcon 
+                                sx={{ 
+                                  color: '#1DA1F2', 
+                                  fontSize: '1.1rem',
+                                  filter: 'drop-shadow(0 2px 4px rgba(29, 161, 242, 0.3))'
+                                }} 
+                              />
+                            )}
+                          </Box>
                           <Typography variant="body2" color="text.secondary">
                             محظور
                           </Typography>

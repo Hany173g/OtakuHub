@@ -122,7 +122,7 @@ export default function Groups() {
         spacing={2}
         sx={{ mb: 4 }}
       >
-        <Typography variant={{ xs: 'h5', md: 'h4' }} fontWeight={700}>
+        <Typography variant="h4" fontWeight={700}>
           المجموعات
         </Typography>
         {isAuthed && (

@@ -20,7 +20,7 @@ const{createError} = require('./createError')
 
 // check all user data and lengths and throw error
 
-let checkUserData = ({username,email,password,next}) => 
+let checkUserData = ({username,email,password}) => 
 {
    
     if (!username || !email || !password )
@@ -65,7 +65,7 @@ let valdtionData = async(username = null,email = null,user,next) =>
 
 
 
-let valdtionDataUpdate = async(username = null,email = null,user,next) => 
+let valdtionDataUpdate = async(username = null,email = null,user) => 
 {
     
 

@@ -47,13 +47,13 @@ io.on('connection', socket => {
 
 
 app.use(cors({
-  origin: ['http://localhost:3000',"https://symphony-frames-triumph-amongst.trycloudflare.com"],
+  origin: ['http://localhost:3000', 'http://localhost:4000', "http://dashboard.localhost:4000"],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
-app.use(rateLimiting) 
+// app.use(rateLimiting) 
 
 app.use(express.json()); // can sent json data
 app.use(express.urlencoded({extended:true})) // read requests
@@ -74,8 +74,11 @@ let PORT = process.env.PORT
 
 //middlewares
 
-
 app.use(require('./middlewares/isAuth'))
+
+
+app.use(require('./middlewares/checkBannedUser'))
+
 
 
 //routes
@@ -91,7 +94,8 @@ let NotificationsRoute = require('./routes/NotificationRoute')
 let messageRoute = require('./routes/messageRoute')
 let groupRoute = require('./routes/groupRoute')
 let searchRoute = require('./routes/searchRoute')
-
+let dashboardRoute = require('./routes/dashboardRoute')
+let vistorRoute = require('./routes/vistorRoute')
 
 
 app.use('/api/auth',registerRoute)
@@ -103,8 +107,8 @@ app.use('/api',profileRoute)
 app.use('/api',NotificationsRoute)
 app.use('/api',messageRoute)
 app.use('/api',groupRoute)
-
-
+app.use('/api/dashboard',dashboardRoute)
+app.use('/api',vistorRoute)
 app.use('/api',searchRoute)
 
 

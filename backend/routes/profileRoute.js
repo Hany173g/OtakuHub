@@ -51,4 +51,9 @@ router.get('/getFavorite',profileContoller.getFavorite)
 
 
 
+
+router.post('/searchUserBlogs',profileContoller.searchBlogUser)
+
+
+
 module.exports = router

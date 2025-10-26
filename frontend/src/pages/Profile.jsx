@@ -37,11 +37,14 @@ import {
   Lock as LockIcon,
   PhotoCamera as PhotoCameraIcon,
   Add as AddIcon,
-  Block as BlockIcon
+  Block as BlockIcon,
+  Verified as VerifiedIcon,
+  Search as SearchIcon
 } from '@mui/icons-material'
-import { storage, getProfile, deleteBlog, updateProfile, acceptFriendRequest, rejectFriendRequest, cancelFriend, blockUser } from '../lib/api'
+import { storage, getProfile, deleteBlog, updateProfile, acceptFriendRequest, rejectFriendRequest, cancelFriend, blockUser, searchUserBlogs } from '../lib/api'
 import BlogCard from '../components/BlogCard'
 import CreateBlogDialog from '../components/CreateBlogDialog'
+import { formatNumber } from '../utils/formatNumber'
 
 export default function Profile() {
   const { username } = useParams()
@@ -68,6 +71,12 @@ export default function Profile() {
   const [updateError, setUpdateError] = useState('')
   const [createBlogOpen, setCreateBlogOpen] = useState(false)
   const [friendRequestSent, setFriendRequestSent] = useState(false)
+  
+  // Search states
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const [blockDialogOpen, setBlockDialogOpen] = useState(false)
@@ -86,6 +95,8 @@ export default function Profile() {
       
       const { data } = await getProfile(username, currentLastNumber)
       console.log('🔍 Profile data received:', data)
+      console.log('👤 User data:', data.userData)
+      console.log('✅ Verified status:', data.userData?.verified)
       
       if (reset) {
         setProfileData(data)
@@ -197,6 +208,21 @@ export default function Profile() {
       blogs: [newBlog, ...(prev.blogs || [])]
     }))
     setCreateBlogOpen(false)
+  }
+
+  const handleSearchBlogs = async () => {
+    if (!searchValue.trim()) return
+    
+    setSearchLoading(true)
+    try {
+      const response = await searchUserBlogs(username, searchValue)
+      setSearchResults(response.data.blogsData || [])
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
+    }
   }
 
   const getFriendButtonText = () => {
@@ -462,13 +488,22 @@ export default function Profile() {
               <Typography variant="h4" fontWeight={600}>
                 {username}
               </Typography>
+              {profile.userData?.verified && (
+                <VerifiedIcon 
+                  sx={{ 
+                    color: '#1DA1F2', 
+                    fontSize: '1.8rem',
+                    filter: 'drop-shadow(0 2px 4px rgba(29, 161, 242, 0.3))'
+                  }} 
+                />
+              )}
             </Stack>
 
             {/* Stats */}
             <Stack direction="row" spacing={12} sx={{ mb: 2, justifyContent: 'space-around', width: '100%' }}>
               <Box sx={{ textAlign: 'center', minWidth: 80 }}>
                 <Typography variant="h6" fontWeight={600}>
-                  {profile.likes || 0}
+                  {formatNumber(profile.likes)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   الإعجابات
@@ -476,7 +511,7 @@ export default function Profile() {
               </Box>
               <Box sx={{ textAlign: 'center', minWidth: 80 }}>
                 <Typography variant="h6" fontWeight={600}>
-                  {profile.followers || 0}
+                  {formatNumber(profile.followers)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   المتابعين
@@ -484,7 +519,7 @@ export default function Profile() {
               </Box>
               <Box sx={{ textAlign: 'center', minWidth: 80 }}>
                 <Typography variant="h6" fontWeight={600}>
-                  {profile.UserFollows || 0}
+                  {formatNumber(profile.UserFollows)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   أتابعه
@@ -523,6 +558,14 @@ export default function Profile() {
                   >
                     الإعدادات
                   </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<SearchIcon />}
+                    onClick={() => setSearchDialogOpen(true)}
+                    color="info"
+                  >
+                    البحث في المنشورات
+                  </Button>
                 </>
               ) : (
                 <>
@@ -543,6 +586,14 @@ export default function Profile() {
                         onClick={() => openChat(username)}
                       >
                         رسالة
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<SearchIcon />}
+                        onClick={() => setSearchDialogOpen(true)}
+                        color="info"
+                      >
+                        البحث في المنشورات
                       </Button>
                     </>
                   ) : profileData?.statusUser?.isReceivedRequest ? (
@@ -579,6 +630,14 @@ export default function Profile() {
                         sx={{ minWidth: 120 }}
                       >
                         {getFriendButtonText()}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<SearchIcon />}
+                        onClick={() => setSearchDialogOpen(true)}
+                        color="info"
+                      >
+                        البحث في المنشورات
                       </Button>
                     </>
                   )}
@@ -962,6 +1021,70 @@ export default function Profile() {
             }}
           >
             {blockLoading ? 'جاري الحظر...' : 'نعم، حظر المستخدم'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Search Blogs Dialog */}
+      <Dialog
+        open={searchDialogOpen}
+        onClose={() => setSearchDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>🔍 البحث في منشورات {profileData?.userData?.username}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="ابحث في المنشورات"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="اكتب كلمة البحث..."
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleSearchBlogs} disabled={searchLoading}>
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchBlogs()}
+            />
+            
+            {searchLoading && (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            
+            {/* Search Results */}
+            {searchResults.length > 0 && !searchLoading && (
+              <Stack spacing={2}>
+                <Typography variant="h6">نتائج البحث ({searchResults.length})</Typography>
+                {searchResults.map((blog, index) => (
+                  <BlogCard key={blog.id || index} blog={blog} />
+                ))}
+              </Stack>
+            )}
+            
+            {searchResults.length === 0 && searchValue && !searchLoading && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="h6" color="text.secondary">
+                  لا توجد نتائج للبحث "{searchValue}"
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setSearchDialogOpen(false)
+            setSearchValue('')
+            setSearchResults([])
+          }}>
+            إغلاق
           </Button>
         </DialogActions>
       </Dialog>

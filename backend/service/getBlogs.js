@@ -160,21 +160,24 @@ const { Op } = require('sequelize');
   }
 
     let allBlogs = [];
-    const blogIds = blogs.map(b => b.id);
-    const commentIds = blogs.flatMap(b => b.commentsBlogs.map(c => c.id));
+   const blogIds = (blogs || []).map(b => b.id);
+    const commentIds = blogs.flatMap(b => (b.commentsBlogs || []).map(c => c.id));
     const userIdsFromComments = blogs.flatMap(b => b.commentsBlogs.map(c => c.userId));
-    const [users, commentsLike, dislikesComments, likeBlogs, dislikeBlogs,blogStats,commenstStats,usersComments,favorites] = await Promise.all([    
-    User.findAll({ where: { id: blogs.map(b => b.userId) } }),
+    const [users, commentsLike, dislikesComments, likeBlogs, dislikeBlogs,blogStats,commenstStats,usersComments,] = await Promise.all([    
+    User.findAll({ where: { id: blogs.map(b => b.userId) }, attributes: ['id', 'username', 'photo', 'verified'] }),
     likesComments.findAll({ where: { commentId: commentIds } ,attributes:['commentId','userId']}),
     dislikeComments.findAll({ where: { commentId: commentIds} ,attributes:['commentId','userId'] }),
     likesBlogs.findAll({ where: { blogId: blogIds } ,attributes:['blogId','userId']}),
     dislikesBlogs.findAll({ where: { blogId: blogIds } ,attributes:['blogId','userId']}),
     BlogStats.findAll({where:{blogId:blogIds}}),
     commentStats.findAll({where:{commentId:commentIds}}),
-    User.findAll({ where: { id:userIdsFromComments} ,attributes:['username','id','photo']}),
-    Favorite.findAll({where:{userId:req.user.id}})
+    User.findAll({ where: { id:userIdsFromComments} ,attributes:['username','id','photo','verified']}),
     ]);
- 
+    let favorites = [];
+    if (req.user)
+    {
+      favorites =  await Favorite.findAll({where:{userId:req.user.id}})
+    }
     blogs.forEach(blog => {
 
           let blogPlain = blog.get({ plain: true });

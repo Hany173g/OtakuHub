@@ -18,7 +18,8 @@ import {
   ThumbDownAlt as ThumbDownOffAltIcon,
   ChatBubbleOutline as ChatBubbleOutlineIcon,
   Favorite as FavoriteIcon,
-  FavoriteBorder as FavoriteBorderIcon
+  FavoriteBorder as FavoriteBorderIcon,
+  Verified as VerifiedIcon
 } from '@mui/icons-material'
 import Avatar from '@mui/material/Avatar'
 import Snackbar from '@mui/material/Snackbar'
@@ -34,6 +35,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import { reactAction, removeLike, removeDislike, addComment, deleteBlog, storage, API_BASE, reportService, addFavorite, removeFavorite } from '../lib/api'
 import CommentsDialog from './CommentsDialog'
+import { formatNumber } from '../utils/formatNumber'
 
 export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddComment, onDeleteBlog, userRole = 'guest', groupSettings = null }) {
   const [localBlog, setLocalBlog] = useState(blog)
@@ -409,23 +411,34 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
           }
           title={
             <Link to={`/profile/${ownerName}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  fontWeight: 700, 
-                  fontSize: '1.2rem',
-                  fontFamily: '"Cairo", sans-serif',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  '&:hover': {
-                    transform: 'translateX(5px)'
-                  }
-                }}
-              >
-                {ownerName}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    fontSize: '1.2rem',
+                    fontFamily: '"Cairo", sans-serif',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    '&:hover': {
+                      transform: 'translateX(5px)'
+                    }
+                  }}
+                >
+                  {ownerName}
+                </Typography>
+                {blog.userData?.verified && (
+                  <VerifiedIcon 
+                    sx={{ 
+                      color: '#1DA1F2', 
+                      fontSize: '1.2rem',
+                      filter: 'drop-shadow(0 2px 4px rgba(29, 161, 242, 0.3))'
+                    }} 
+                  />
+                )}
+              </Box>
             </Link>
           }
           subheader={
@@ -550,7 +563,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
                 <ThumbUpOffAltIcon sx={{ fontSize: 22 }} />
               }
             >
-           إعجاب ( {likeCount} )
+           إعجاب ( {formatNumber(likeCount)} )
             </Button>
 
             <Button
@@ -581,7 +594,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
                 <ThumbDownOffAltIcon sx={{ fontSize: 22 }} />
               }
             >
-               عدم إعجاب ( {dislikeCount} )
+               عدم إعجاب ( {formatNumber(dislikeCount)} )
             </Button>
 
             <Button
@@ -605,7 +618,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
               }}
               startIcon={<ChatBubbleOutlineIcon sx={{ fontSize: 22 }} />}
             >
-              💬 تعليقات ( {commentCount} )
+              💬 تعليقات ( {formatNumber(commentCount)} )
             </Button>
 
             {isAuthed && (
@@ -736,6 +749,7 @@ export default function BlogCard({ blog, isAuthed = false, onUpdateBlog, onAddCo
         blog={blog}
         onAddComment={handleAddComment}
         userRole={userRole}
+        isAuthed={isAuthed}
       />
 
       <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

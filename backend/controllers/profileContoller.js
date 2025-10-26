@@ -12,13 +12,14 @@ const {userRelations} = require('../utils/friendStatus')
 const {Op, where, Model} = require('sequelize')
 
 const {valdtionData,checkUserData,valdtionDataUpdate} = require('../utils/auth')
-const{updateProfileValdtion,checkPhoto,checkIsBlock,checkBlogGroup} = require('../utils/checkData')
+const{updateProfileValdtion,checkPhoto,checkIsBlock,checkBlogGroup,getFavorite,checkBlogsStats} = require('../utils/checkData')
 
 
 const {createError} = require('../utils/createError')
+const { Sequelize} = require('sequelize');
 
 
-
+const{checkUser} = require('../utils/dashboardUtils')
 
 exports.getProfile = async(req,res,next) => {
     try{
@@ -29,7 +30,7 @@ exports.getProfile = async(req,res,next) => {
                throw createError("البينات ليست كامله",400)
            
         }
-        let user = await User.findOne({where:{username}});
+        let user = await User.findOne({where:{username}, attributes: ['id', 'username', 'photo', 'verified']});
         if (!user)
         {
                 throw createError("هذا المستخدم غير موجود او تم حذف حسابه",400)
@@ -55,11 +56,19 @@ exports.getProfile = async(req,res,next) => {
             await checkIsBlock(reqUserInstance,user,next)
         }
         
+        console.log('🔍 User verified status:', user.verified)
+        console.log('👤 User data being sent:', {
+            username: user.username,
+            photo: user.photo,
+            verified: user.verified
+        })
+        
         res.status(200).json({
             ...profileData.toJSON(),
             userData: {
                 username: user.username,
-                photo: user.photo
+                photo: user.photo,
+                verified: user.verified
             },
             isOwner,
             blogs,
@@ -82,7 +91,7 @@ exports.addUserData = async(req,res,next) => {
        
        let dataAfterChecks =  await updateProfileValdtion(user,username,email,password);
         await valdtionDataUpdate(username,email,user,next);
-        let data = checkUserData(dataAfterChecks,next)
+        let data = checkUserData(dataAfterChecks)
         
     if (req.file)
     {   
@@ -91,7 +100,9 @@ exports.addUserData = async(req,res,next) => {
     }
        
         let userUpdate = await user.update(data)
-    
+        let agent = req.headers["user-agent"];     
+        let ip = req.ip
+        await SecuirtyLogs.create({userId:user.id,action:"update",agent,ip})
         res.status(200).json({
             userUpdate: {
                 id: userUpdate.id,
@@ -363,7 +374,7 @@ exports.getBlocks = async(req,res,next) => {
          let user = await isUser(req.user,next)
          let blocks = await user.getSentBlock();
          let usersBlocksIds = blocks.map(blockUser => blockUser.recivceBlock)
-         let usersBlocks = await User.findAll({where:{id:usersBlocksIds},attributes:["id","username","photo"]})
+         let usersBlocks = await User.findAll({where:{id:usersBlocksIds},attributes:["id","username","photo","verified"]})
          res.status(200).json({usersBlocks})
     }catch(err)
     {
@@ -404,22 +415,8 @@ exports.removeBlock = async(req,res,next) => {
 exports.getFavorite = async(req,res,next) => {
     try{
          let user = await isUser(req.user,next)
-         let Favorites = await user.getFavorites({limit:20,include:{
-            model:Blogs,
-            attributes:["photo","title","content","id","createdAt"],
-           include: [  
-                {
-                    model: User,
-                    attributes: ["id","username","photo"]
-                },
-                {
-                    model: Groups,
-                    attributes: ["privacy","id"]
-                }
-            ]
-        
-         }});
-        let result =  await checkBlogGroup(user,Favorites)
+             let fav = await getFavorite(user)
+        res.status(200).json({fav})
         res.status(200).json({Favorites:result})
     }catch(err)
     {
@@ -433,4 +430,50 @@ exports.getFavorite = async(req,res,next) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+exports.searchBlogUser = async(req,res,next) => {
+    try{
+        const{value,username} = req.body;
+        let userSearch = await checkUser(username)
+        let user = null;
+        if (req.user)
+        {
+         user = await User.findOne({where:{id:req.user.id}})
+        }
+        const blogs = await Blogs.findAll({
+            where:
+            {
+                [Op.and]:[
+                    Sequelize.literal(`MATCH(content,title) AGAINST('+${value}*' IN BOOLEAN MODE)`),
+                ],
+                userId:userSearch.id
+            },
+            include:[
+                {model:commentsBlogs},
+            ]
+            ,limit:20
+        })
+       
+        let blogsStats = await getBlogs(req,res,"search",user,null,blogs)
+       let blogsData =   await checkBlogsStats(blogsStats)
+
+        res.status(200).json({blogsData});
+    }catch(err)
+    {
+        console.log(err.message)
+       next(err)
+    }
+}
 

@@ -184,11 +184,13 @@ const checkComment = async(id ) => {
 
 
 const updateProfileValdtion = async (user, newUsername, newEmail, newPassword ) => {
-   
+
     let username = newUsername || user.username;
     let email = newEmail || user.email;
     let password = newPassword ? await hashPassword(newPassword) : user.password;
-   
+   console.log(username)
+   console.log(email)
+   console.log(password)
     return { username, email, password };
 };
 
@@ -460,7 +462,7 @@ const checkStatsUsers = async(users,user) => {
         ])
         let result = users.map(User =>  {
             let userEdit = User.get({plain:true});
-            if (userEdit.id != user.id)
+            if (!user || userEdit.id != user.id)
             {
                   userFriends.map(f => {
                     if (f.friendId === User.id  || f.userId === User.id)
@@ -504,7 +506,10 @@ const checkGroupStats = async(GroupsData,user) => {
 
         for (let group of userGroups)
         {
-            let members = await group.getUsers({through:{where:{userId:user.id}}})
+            let members = []
+            if (user) {
+                members = await group.getUsers({through:{where:{userId:user.id}}})
+            }
             let groupPlain = group.get({ plain: true });
             groupPlain.isMember = members.length > 0
             if (groupPlain.isMember)
@@ -951,4 +956,35 @@ const checkBlogGroup = async(user,Favorites) => {
 
 
 
-module.exports = {checkAddFav,checkBlogGroup,changeWarringNumbers,getHistoryDeleteUser,getBannedUsers,getUserReports,getUserPenningBlogs,getUserBanned,getLoggerUser,removeBanUser,checkIsBlock,checkBanned,addNewWarring,moderatorsAcess,checkWarringData,addLogger,checkUpdateGroupSettingsData,checkBlogsStats,checkGroupStats,checkStatsUsers,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}
+
+
+
+const getFavorite = async(user) => {
+      let Favorites = await user.getFavorites({limit:20,include:{
+            model:Blogs,
+            attributes:["photo","title","content","id","createdAt"],
+           include: [  
+                {
+                    model: User,
+                    attributes: ["id","username","photo"]
+                },
+                {
+                    model: Groups,
+                    attributes: ["privacy","id"]
+                }
+            ]
+        
+         }});
+        let result =  await checkBlogGroup(user,Favorites)
+        return result
+}
+
+
+
+
+
+
+
+
+
+module.exports = {checkAddFav,getFavorite,checkBlogGroup,changeWarringNumbers,getHistoryDeleteUser,getBannedUsers,getUserReports,getUserPenningBlogs,getUserBanned,getLoggerUser,removeBanUser,checkIsBlock,checkBanned,addNewWarring,moderatorsAcess,checkWarringData,addLogger,checkUpdateGroupSettingsData,checkBlogsStats,checkGroupStats,checkStatsUsers,checkData,checkChangeRole,checkPenningBlogData,checkGroupRole,userAction,checkRole,checkAcess,checkGroupData,checkGroup,checkAcessMore,checkReportData,checkDataMessage,checkPhoto,checkBlog,checkAction,checkComment,updateProfileValdtion,checkFriendRequestData}

@@ -27,7 +27,7 @@ const Notification = sequelize.define("Notifcation",{
         allowNull:false
     },
     serviceType:{
-        type:DataTypes.ENUM("joinGroup","kickGroup","cancelPenningUser","likeBlog","newComment","likeComment","dislikeComment","dislikeBlog"),
+        type:DataTypes.ENUM("joinGroup","kickGroup","cancelPenningUser","likeBlog","newComment","likeComment","dislikeComment","dislikeBlog","AdminMessage"),
         allowNull:false
     },
     userId:{

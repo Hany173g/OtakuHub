@@ -47,6 +47,8 @@ const {bannedUser} = require('./bannedUserModel')
 const {Favorite} = require('./favoriteModel')
 
 
+const {SecuirtyLogs} = require('./secuirtyLogsModel')
+
 
 // Users ReelationShips
 
@@ -134,6 +136,10 @@ const {Favorite} = require('./favoriteModel')
         privateMessage.belongsTo(User,{foreignKey:'receiveId'})
 
 
+        // relationship user to group
+
+        User.hasMany(Groups,{foreignKey:"userId",onDelete:"CASCADE"})
+        Groups.belongsTo(User,{foreignKey:"groupId"})
 
         // relationship User && Groups Many To Many
         User.belongsToMany(Groups, { through: 'GroupMember', foreignKey: 'userId', otherKey: 'groupId', onDelete: 'CASCADE' });
@@ -196,7 +202,10 @@ const {Favorite} = require('./favoriteModel')
 
 
 
+        //relation user to SecuirtyLogs
 
+        User.hasMany(SecuirtyLogs,{foreignKey:"userId",onDelete:"CASCADE"})
+        SecuirtyLogs.belongsTo(User,{foreignKey:"userId"})
 //Blogs ReelationShips
 
 
@@ -346,4 +355,4 @@ const {Favorite} = require('./favoriteModel')
 
 
 
-module.exports = {User,bannedUser,Blogs,Favorite,dislikesBlogs,Notification,warringUser,penningBlogs,groupSettings,report,blocks,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}
+module.exports = {User,bannedUser,Blogs,Favorite,SecuirtyLogs,dislikesBlogs,Notification,warringUser,penningBlogs,groupSettings,report,blocks,historyDeleteGroup,loggerGroup,pendingRequestsGroup,friends,Groups,GroupMember,likesBlogs,privateMessage,Profile,commentsBlogs,BlogStats,requestFriend,likesComments,dislikeComments,commentStats,nestedComments}

@@ -21,7 +21,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import PeopleIcon from '@mui/icons-material/People'
 import SearchIcon from '@mui/icons-material/Search'
 import { Link, useNavigate } from 'react-router-dom'
-import { storage, getFriendsRequest, acceptFriendRequest, rejectFriendRequest, getNotifications } from '../lib/api'
+import { storage, getFriendsRequest, acceptFriendRequest, rejectFriendRequest, getNotifications, markNotificationsAsRead, getBroadcastNotifications, markBroadcastNotificationsAsRead } from '../lib/api'
 import { useSocket } from '../contexts/SocketContext'
 import { useChat } from '../contexts/ChatContext'
 
@@ -35,6 +35,7 @@ export default function Navbar() {
   const [notificationAnchor, setNotificationAnchor] = useState(null)
   const [friendRequests, setFriendRequests] = useState([])
   const [backendNotifications, setBackendNotifications] = useState([])
+  const [broadcastNotifications, setBroadcastNotifications] = useState([])
   
   // Friends states
   const [friendsAnchor, setFriendsAnchor] = useState(null)
@@ -49,6 +50,7 @@ export default function Navbar() {
     if (isAuthed) {
       loadFriendRequests()
       loadBackendNotifications()
+      loadBroadcastNotifications()
       
       // Join notification room when navbar loads
       if (socket && isConnected) {
@@ -59,8 +61,8 @@ export default function Navbar() {
 
   // Update total notifications when socket notifications change
   useEffect(() => {
-    setTotalNotifications(friendRequests.length + notifications.length + backendNotifications.length)
-  }, [friendRequests.length, notifications.length, backendNotifications.length])
+    setTotalNotifications(friendRequests.length + notifications.length + backendNotifications.length + broadcastNotifications.length)
+  }, [friendRequests.length, notifications.length, backendNotifications.length, broadcastNotifications.length])
 
   const loadFriendRequests = async () => {
     try {
@@ -80,11 +82,42 @@ export default function Navbar() {
     }
   }
 
+  const loadBroadcastNotifications = async () => {
+    try {
+      const { data } = await getBroadcastNotifications()
+      setBroadcastNotifications(data.broadNotfsc || [])
+    } catch (err) {
+      console.error('Error loading broadcast notifications:', err)
+    }
+  }
+
   const handleNotificationClick = (event) => {
     setNotificationAnchor(event.currentTarget)
   }
 
-  const handleNotificationClose = () => {
+  const handleNotificationClose = async () => {
+    // Mark backend notifications as read
+    if (backendNotifications.length > 0) {
+      try {
+        const unreadIds = backendNotifications.map(notif => notif.id)
+        await markNotificationsAsRead(unreadIds)
+        setBackendNotifications([]) // Clear them from UI
+      } catch (err) {
+        console.error('Error marking notifications as read:', err)
+      }
+    }
+
+    // Mark broadcast notifications as read
+    if (broadcastNotifications.length > 0) {
+      try {
+        const unreadIds = broadcastNotifications.map(notif => notif.id)
+        await markBroadcastNotificationsAsRead(unreadIds)
+        setBroadcastNotifications([]) // Clear them from UI
+      } catch (err) {
+        console.error('Error marking broadcast notifications as read:', err)
+      }
+    }
+    
     setNotificationAnchor(null)
     // Clear message notifications when closing the menu
     clearMessageNotifications()
@@ -195,7 +228,7 @@ export default function Navbar() {
         </Box>
 
         {/* Search Bar */}
-        {isAuthed && (
+        {(
           <Box
             component="form"
             onSubmit={handleSearchSubmit}
@@ -567,14 +600,86 @@ export default function Navbar() {
           </>
         )}
 
-        {/* Backend Notifications Section */}
+        {/* System Messages Section - Always First */}
+        {broadcastNotifications.length > 0 && (
+          <>
+            <Box sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1,
+              bgcolor: 'primary.main',
+              color: 'white'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>📢</span>
+              <Typography variant="subtitle2" fontWeight={700}>
+                رسائل النظام ({broadcastNotifications.length})
+              </Typography>
+            </Box>
+            <List sx={{ py: 0 }}>
+              {broadcastNotifications.map((notif) => {
+                const getNotificationIcon = (type) => {
+                  if (type === 'info') return '📢'
+                  if (type === 'warring') return '⚠️'
+                  if (type === 'update') return '🔄'
+                  return '📢'
+                }
+                
+                const getNotificationColor = (type) => {
+                  if (type === 'info') return '#2196f3'
+                  if (type === 'warring') return '#ff9800'
+                  if (type === 'update') return '#4caf50'
+                  return '#2196f3'
+                }
+                
+                return (
+                  <ListItem 
+                    key={notif.id} 
+                    sx={{ 
+                      py: 1.5, 
+                      bgcolor: 'action.hover',
+                      borderLeft: `4px solid ${getNotificationColor(notif.type)}`,
+                      mb: 1,
+                      mx: 1,
+                      borderRadius: 1
+                    }}
+                  >
+                    <Box sx={{ mr: 2, fontSize: '1.5rem' }}>
+                      {getNotificationIcon(notif.type)}
+                    </Box>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontWeight={600}>
+                          {notif.content}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(notif.createdAt).toLocaleDateString('ar-EG')}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                )
+              })}
+            </List>
+          </>
+        )}
+
+        {/* Regular Notifications Section */}
         {backendNotifications.length > 0 && (
           <>
-            <Divider />
-            <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1,
+              bgcolor: 'grey.100'
+            }}>
               <NotificationsIcon color="info" />
-              <Typography variant="subtitle2" fontWeight={600}>
-                إشعارات أخرى ({backendNotifications.length})
+              <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+                الإشعارات ({backendNotifications.length})
               </Typography>
             </Box>
             <List sx={{ py: 0 }}>
@@ -643,7 +748,10 @@ export default function Navbar() {
         )}
 
         {/* No Notifications */}
-        {friendRequests.length === 0 && notifications.length === 0 && backendNotifications.length === 0 && (
+        {friendRequests.length === 0 && 
+         notifications.length === 0 && 
+         backendNotifications.length === 0 && 
+         broadcastNotifications.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <NotificationsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
             <Typography variant="body2" color="text.secondary">

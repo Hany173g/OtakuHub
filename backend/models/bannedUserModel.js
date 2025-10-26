@@ -35,6 +35,9 @@ const bannedUser = sequelize.define("bannedUser",{
     },
     groupId:{
         type:DataTypes.INTEGER
+    },
+    timeBanned:{
+        type:DataTypes.BIGINT
     }
 },
 {

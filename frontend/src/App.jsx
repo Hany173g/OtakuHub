@@ -17,10 +17,10 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { useEffect, useState } from 'react'
-import { isAuth } from './lib/api'
+import { isAuth, addVisitorData, addLastSeen, setGlobalToast } from './lib/api'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import SnackbarProvider from './components/ui/SnackbarProvider'
+import SnackbarProvider, { useToast } from './components/ui/SnackbarProvider'
 import { SocketProvider } from './contexts/SocketContext'
 import { ChatProvider } from './contexts/ChatContext'
 import { ErrorProvider } from './contexts/ErrorContext'
@@ -112,6 +112,58 @@ function GuestOnly({ children }) {
   return children
 }
 
+// Visitor Tracker Component
+function VisitorTracker() {
+  const location = useLocation()
+
+  useEffect(() => {
+    // Track page visit
+    addVisitorData(location.pathname)
+  }, [location.pathname])
+
+  return null
+}
+
+// Session tracker for last seen
+function SessionTracker() {
+  useEffect(() => {
+    // Check if this is a new session
+    const sessionKey = 'otaku_session_' + Date.now()
+    const existingSession = sessionStorage.getItem('otaku_current_session')
+    
+    console.log('🔍 Session check - existing session:', existingSession)
+    
+    if (!existingSession) {
+      console.log('🆕 New session detected, setting up session tracking')
+      // New session - record last seen
+      sessionStorage.setItem('otaku_current_session', sessionKey)
+      
+      // Check if user is authenticated and record last seen
+      isAuth().then(() => {
+        console.log('✅ User authenticated, recording last seen')
+        addLastSeen()
+      }).catch(() => {
+        console.log('❌ User not authenticated, skipping last seen')
+      })
+    } else {
+      console.log('♻️ Existing session found, skipping last seen recording')
+    }
+  }, [])
+
+  return null
+}
+
+// Toast setup component
+function ToastSetup() {
+  const toast = useToast()
+  
+  useEffect(() => {
+    setGlobalToast(toast.show)
+  }, [toast.show])
+  
+  return null
+}
+
 export default function App() {
   return (
     <ThemeProvider theme={getTheme()}>
@@ -120,8 +172,11 @@ export default function App() {
         <ChatProvider>
           <ErrorProvider>
             <SnackbarProvider>
-            <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
-              <Navbar />
+              <ToastSetup />
+              <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+                <SessionTracker />
+                <VisitorTracker />
+                <Navbar />
               <Container maxWidth="lg" sx={{ py: { xs: 1, md: 2 }, px: { xs: 1, sm: 2, md: 3 } }}>
                 <Routes>
                   <Route path="/" element={<FeedNew />} />

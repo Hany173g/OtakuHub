@@ -165,6 +165,14 @@ export default function GroupDashboard() {
   const [removingBannedUser, setRemovingBannedUser] = useState(null)
 
   useEffect(() => {
+    // Check if user is authenticated before making any API calls
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    if (!token) {
+      // Redirect to login if no token
+      navigate('/login', { replace: true })
+      return
+    }
+    
     checkAccess()
     loadGroupData()
   }, [groupName])
@@ -222,6 +230,13 @@ export default function GroupDashboard() {
 
   const checkAccess = async () => {
     try {
+      // Double check authentication before API call
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+      if (!token) {
+        navigate('/login', { replace: true })
+        return
+      }
+      
       await checkGroupAccess(groupName)
       setHasAccess(true)
       loadPendingUsers()

@@ -23,6 +23,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import ArticleIcon from '@mui/icons-material/Article'
+import VerifiedIcon from '@mui/icons-material/Verified'
 import { search, storage } from '../lib/api'
 import BlogCard from '../components/BlogCard'
 
@@ -209,6 +210,15 @@ export default function SearchPage() {
                             <Typography variant="body1" fontWeight={600}>
                               {user.username}
                             </Typography>
+                            {user.verified && (
+                              <VerifiedIcon 
+                                sx={{ 
+                                  color: '#1DA1F2', 
+                                  fontSize: '1.1rem',
+                                  filter: 'drop-shadow(0 2px 4px rgba(29, 161, 242, 0.3))'
+                                }} 
+                              />
+                            )}
                             {badge && (
                               <Chip
                                 icon={<span style={{ fontSize: '0.9rem' }}>{badge.icon}</span>}

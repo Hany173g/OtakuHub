@@ -24,4 +24,11 @@ router.post('/markNotfcsRead',notificationContoller.markNotfcsRead)
 
 router.get('/getNotication',notificationContoller.getNotication)
 
+
+router.post('/getBroadCastNotfcs',notificationContoller.getBroadCastNotfcs)
+
+
+router.post('/markBroadCastNotfcsRead',notificationContoller.markBroadCastNotfcsRead)
+
+
 module.exports = router

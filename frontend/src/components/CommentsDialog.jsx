@@ -23,12 +23,14 @@ import {
   ThumbDownAlt as ThumbDownOffAltIcon,
   Close as CloseIcon,
   MoreVert as MoreVertIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Verified as VerifiedIcon
 } from '@mui/icons-material'
 import { reactAction, deleteComment, storage } from '../lib/api'
 import { addComment } from '../lib/api'
+import { formatNumber } from '../utils/formatNumber'
 
-export default function CommentsDialog({ open, onClose, blog, onAddComment, userRole = 'guest' }) {
+export default function CommentsDialog({ open, onClose, blog, onAddComment, userRole = 'guest', isAuthed = false }) {
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
   const [localBlog, setLocalBlog] = useState(blog)
@@ -123,6 +125,13 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
 
   const handleCommentReact = async (commentId, type) => {
     if (busy) return
+    setBusy(true)
+    
+    // Check if user is authenticated before doing anything
+    if (!isAuthed) {
+      setBusy(false)
+      return // Don't do anything for guests
+    }
     
     // Update UI immediately (Optimistic Update)
     setLocalBlog(prev => ({
@@ -191,6 +200,8 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
       console.error('Error details:', err.message)
       // If backend fails, we could revert the change here if needed
       // But for now, we'll keep the optimistic update
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -350,9 +361,20 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
                       <Box sx={{ flex: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Link to={`/profile/${commentUserName}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                            <Typography variant="body2" fontWeight={600}>
-                              {commentUserName}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography variant="body2" fontWeight={600}>
+                                {commentUserName}
+                              </Typography>
+                              {c.userData?.verified && (
+                                <VerifiedIcon 
+                                  sx={{ 
+                                    color: '#1DA1F2', 
+                                    fontSize: '0.9rem',
+                                    filter: 'drop-shadow(0 1px 2px rgba(29, 161, 242, 0.3))'
+                                  }} 
+                                />
+                              )}
+                            </Box>
                           </Link>
                           <Typography variant="caption" color="text.secondary">
                             {c.createdAt ? formatRelative(c.createdAt) : ''}
@@ -378,7 +400,7 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
                               {c.isLike ? <ThumbUpIcon sx={{ fontSize: 14 }} /> : <ThumbUpOffAltIcon sx={{ fontSize: 14 }} />}
                             </IconButton>
                             <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                              {commentLikeCount}
+                              {formatNumber(commentLikeCount)}
                             </Typography>
                           </Stack>
                           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -390,7 +412,7 @@ export default function CommentsDialog({ open, onClose, blog, onAddComment, user
                               {c.isDislike ? <ThumbDownIcon sx={{ fontSize: 14 }} /> : <ThumbDownOffAltIcon sx={{ fontSize: 14 }} />}
                             </IconButton>
                             <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                              {commentDislikeCount}
+                              {formatNumber(commentDislikeCount)}
                             </Typography>
                           </Stack>
                         </Stack>

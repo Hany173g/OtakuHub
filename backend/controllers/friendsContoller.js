@@ -3,7 +3,8 @@
 const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend} = require('../models/Relationships')
 
 
-const {Op, where} = require('sequelize')
+const {Op, where} = require('sequelize');
+const { createError } = require('../utils/createError');
 
 
 
@@ -64,7 +65,7 @@ exports.getFriends = async(user,onlineFriends) => {
         return sortedFriends;
     }catch(err)
     {
-        next(err)
+        throw createError(err.message)
     }
 }
 

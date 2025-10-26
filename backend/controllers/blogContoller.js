@@ -19,12 +19,12 @@ const sequelize = require('../config/database')
 
 exports.createBlog = async(req,res,next) => {
     try {
-    let user =   await  isUser(req.user,next)
+    let user =   await  isUser(req.user)
    let {newBlog} =  await createBlog(req.body,req.file,user)
 
     res.status(201).json({blogData:newBlog})
     }catch(err)
-    {
+    { 
        next(err)
     }
 }
@@ -112,7 +112,7 @@ exports.addComment = async(req,res,next) => {
                 BlogStats = await blog.createBlogStat();
         }
          await BlogStats.increment('commentsNumber', { by: 1 });
-         let isOwner = newComment.userId === req.user.id;   
+         let isOwner = newComment.userId === user.id;   
          res.status(201).json({
              newComment: {
                  ...newComment.toJSON(),
@@ -152,6 +152,7 @@ exports.doAction = async(req,res,next) => {
        {
         item = await checkComment(id,next);
        }
+           console.log(req.path)
        let user =   await  isUser(req.user,next)
        await Like_Dislike(user,id,service,item,action,null ,next)
        res.status(201).json()
@@ -170,9 +171,10 @@ exports.getBlogs = async(req,res,next) => {
 
     let allBlogs = await getBlogs(req,res,'home',null)
    
-    res.status(200).json(allBlogs)
+     res.status(200).json(allBlogs)
     }catch(err)
     {
+        console.log(err.message)
         next(err)
     }
 }
