@@ -73,7 +73,7 @@ exports.refreshToken = async(req,res,next) => {
         {
             throw createError("التوكن غير صالح",400)
         }
-        let acessToken =  createAcessToken({id:decode.id,username:decode.username});
+        let acessToken =  createAcessToken(decode.username, decode.id);
         res.status(200).json({acessToken})
     }catch(err)
     {

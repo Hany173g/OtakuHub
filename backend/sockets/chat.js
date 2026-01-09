@@ -4,6 +4,8 @@ const {isUser} =require('../utils/isUser')
 
 const{User} = require('../models/userModel')
 
+const {createError} = require('../utils/createError')
+
 const message = require('../controllers/privateMessageContoller')
 
 
@@ -39,8 +41,8 @@ module.exports = (io,socket) => {
                     photo: friend.photo
                 })
             } catch(err) {
-                console.error('❌ Send message error:', err)
-                socket.emit('error', { message: err.message });
+              
+                 throw createError("حصل خطاء غير متوقع",500)
             }
         })
         socket.on('deleteMessage' , async(token,messageId) => {
@@ -50,11 +52,11 @@ module.exports = (io,socket) => {
                  socket.emit("messageDelete", result)
              }catch(err)
              {
-                 socket.emit('error', { message: err.message });
+                  throw createError("حصل خطاء غير متوقع",500)
              }
         })
     }catch(err)
     {
-       next(err)
+       throw createError("حصل خطاء غير متوقع",500)
     }
 }

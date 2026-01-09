@@ -20,9 +20,10 @@ module.exports =  (token) => {
     }
 
     try {
-        let decoded = jwt.verify(token, process.env.JWT_SECERT);
+        let decoded = jwt.verify(token, process.env.JWT_SECERT_ACCESS_TOKENl);
         return decoded; 
     } catch (err) {
-        next(err)
+        console.log(err.message)
+        throw createError("حصل خطاء غير متوقع",500)
     }
 }

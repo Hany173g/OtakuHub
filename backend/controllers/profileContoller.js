@@ -1,5 +1,5 @@
 
-const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend,blocks,Favorite, Groups, GroupMember} = require('../models/Relationships')
+const {Profile,friends,User,Blogs,commentStats,commentsBlogs,requestFriend,blocks,SecuirtyLogs,Favorite, Groups, GroupMember} = require('../models/Relationships')
 
 
 const {getBlogs} = require('../service/getBlogs')
@@ -113,6 +113,7 @@ exports.addUserData = async(req,res,next) => {
         })
     }catch(err)
     {
+        console.log(err.message)
         next(err)
     }
 }

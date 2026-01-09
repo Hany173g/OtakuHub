@@ -158,6 +158,7 @@ exports.doAction = async(req,res,next) => {
        res.status(201).json()
     }catch(err)
     {
+        console.log("a",err.message)
         next(err)
     }
 }

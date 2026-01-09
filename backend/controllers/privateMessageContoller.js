@@ -28,7 +28,7 @@ exports.sendMessage = async(username,content,user) => {
        return friend;
     }catch(err)
     {
-       next(err)
+        throw createError("حصل خطاء غير متوقع",500)
     }
 }
 

@@ -44,6 +44,7 @@ exports.getNotication = async(req,res,next) => {
         res.status(200).json({userNottication})
     }catch(err)
     {
+        console.log(err.message)
        next(err)
     }
 }

@@ -76,7 +76,7 @@ exports.refreshToken = async(req,res,next) => {
         {
             throw createError("التوكن غير صالح",401)
         }
-        let acessToken =  createAcessToken(decode.name,decode.id);
+        let acessToken = createAcessToken(decode.name, decode.id);
 
         res.status(200).json({acessToken})
     }catch(err)
